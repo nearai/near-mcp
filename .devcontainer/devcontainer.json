@@ -1,0 +1,57 @@
+{
+  "name": "mcp-near",
+  "dockerComposeFile": [
+    "../.docker/docker-compose-dev.yml"
+  ],
+  "service": "mcp_near_dev",
+  "shutdownAction": "stopCompose",
+  "workspaceFolder": "/workspace",
+  "userEnvProbe": "loginInteractiveShell",
+  "remoteUser": "user",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "files.eol": "\n",
+        "remote.extensionKind": {
+          "ms-azuretools.vscode-docker": "workspace"
+        },
+        "editor.codeActionsOnSaveTimeout": 3000,
+        "eslint.validate": [
+          "javascript",
+          "javascriptreact",
+          "typescript",
+          "typescriptreact"
+        ],
+        "typescript.tsdk": "/workspace/node_modules/typescript/lib",
+        "typescript.enablePromptUseWorkspaceTsdk": true,
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.fixAll.eslint": "always",
+            "source.organizeImports": "always"
+          }
+        },
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "zsh"
+          }
+        }
+      },
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "davidanson.vscode-markdownlint",
+        "ms-azuretools.vscode-docker",
+        "shardulm94.trailing-spaces",
+        "bierner.emojisense",
+        "vscode-icons-team.vscode-icons",
+        "redhat.vscode-yaml",
+        "bajdzis.vscode-database",
+        "IBM.output-colorizer",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}

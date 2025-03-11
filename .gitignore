@@ -1,0 +1,5 @@
+__pycache__
+**/target
+**/dist
+**/node_modules
+**/.pnpm-store

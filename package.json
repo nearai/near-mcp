@@ -1,0 +1,44 @@
+{
+  "name": "mcp-near",
+  "version": "1.0.0",
+  "description": "MCP server for interacting with Near Blockchain",
+  "scripts": {
+    "start": "bun run src/services.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "@types/react": "19.0.4",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "@near-js/client": "^0.0.3",
+    "@near-js/crypto": "^1.4.1",
+    "@near-js/keystores": "^0.2.1",
+    "@near-js/keystores-node": "^0.1.2",
+    "@near-js/types": "^0.3.1",
+    "@near-js/utils": "^1.0.1",
+    "@near-js/wallet-account": "^1.3.2",
+    "@near-wallet-selector/core": "^8.9.15",
+    "@types/bs58": "^4.0.4",
+    "borsh": "^2.0.0",
+    "bs58": "^6.0.0",
+    "buffer": "^6.0.3",
+    "hono": "^4.7.4",
+    "near-api-js": "^5.0.1",
+    "near-sdk-js": "^2.0.0",
+    "uuid": "^11.0.4",
+    "zod": "^3.24.1"
+  }
+}
