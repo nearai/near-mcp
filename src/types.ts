@@ -1,19 +1,19 @@
-import { KeyType } from "@near-js/crypto";
-import { validateAccountId } from "near-sdk-js";
+import { KeyType } from '@near-js/crypto';
+import { validateAccountId } from 'near-sdk-js';
 import {
   borshDeserialize,
   BorshSchema,
   borshSerialize,
   type BSE,
   type TypeOf,
-} from "./borsher";
+} from './borsher';
 
-import base58 from "bs58";
-import { Buffer } from "buffer";
-import { z } from "zod";
+import base58 from 'bs58';
+import { Buffer } from 'buffer';
+import { z } from 'zod';
 
 const CLOSED_ACCOUNT_ID =
-  "0000000000000000000000000000000000000000000000000000000000000000";
+  '0000000000000000000000000000000000000000000000000000000000000000';
 const YOCTO_NEAR_PER_NEAR = 10 ** 24;
 
 export type Result<T, E = Error> =
@@ -23,25 +23,25 @@ export type Result<T, E = Error> =
 export type AccountId = string;
 export type ChannelId = string;
 
-const keyTypeToCurvePrefix: Record<KeyType, string> = {
-  [KeyType.ED25519]: "ed25519",
-  [KeyType.SECP256K1]: "secp256k1",
+export const keyTypeToCurvePrefix: Record<KeyType, string> = {
+  [KeyType.ED25519]: 'ed25519',
+  [KeyType.SECP256K1]: 'secp256k1',
 };
 
 export const stringify_bigint = (val: unknown) => {
   return JSON.stringify(
     val,
-    (_, value) => (typeof value === "bigint" ? value.toString() : value),
-    2
+    (_, value) => (typeof value === 'bigint' ? value.toString() : value),
+    2,
   );
 };
 
 export const bigIntPreprocess = (val: unknown) => {
   if (
-    typeof val === "bigint" ||
-    typeof val === "boolean" ||
-    typeof val === "number" ||
-    typeof val === "string"
+    typeof val === 'bigint' ||
+    typeof val === 'boolean' ||
+    typeof val === 'number' ||
+    typeof val === 'string'
   ) {
     return BigInt(val);
   }
@@ -53,7 +53,7 @@ export class NearToken {
 
   constructor(yoctoNear: bigint) {
     if (yoctoNear < 0n) {
-      throw new Error("NearToken amount cannot be negative");
+      throw new Error('NearToken amount cannot be negative');
     }
     this.yoctoNear = yoctoNear;
   }
@@ -76,8 +76,8 @@ export class NearToken {
   }
 
   static parse_near(near: string | number): NearToken {
-    if (near === "" || near === null || near === undefined) {
-      throw new Error("NEAR amount cannot be empty");
+    if (near === '' || near === null || near === undefined) {
+      throw new Error('NEAR amount cannot be empty');
     }
 
     const nearNum = Number(near);
@@ -139,12 +139,12 @@ export class Signature extends Schemable<
   }
 
   as_buffer(): Buffer {
-    if ("ED25519" in this.value) {
+    if ('ED25519' in this.value) {
       return Buffer.from(this.value.ED25519);
-    } else if ("SECP256K1" in this.value) {
+    } else if ('SECP256K1' in this.value) {
       return Buffer.from(this.value.SECP256K1);
     }
-    throw new Error("Invalid signature type");
+    throw new Error('Invalid signature type');
   }
 
   static from_curve(curve: KeyType, signature: Buffer): Signature {
@@ -157,12 +157,12 @@ export class Signature extends Schemable<
   }
 
   get_curve(): KeyType {
-    if ("ED25519" in this.value) {
+    if ('ED25519' in this.value) {
       return KeyType.ED25519;
-    } else if ("SECP256K1" in this.value) {
+    } else if ('SECP256K1' in this.value) {
       return KeyType.SECP256K1;
     }
-    throw new Error("Invalid signature type");
+    throw new Error('Invalid signature type');
   }
 
   as_string(): string {
@@ -243,7 +243,7 @@ export class Channel extends Schemable<BorshChannel, typeof channelZodSchema> {
   constructor(value: ChannelType) {
     if (!validateAccountId(value.receiver.account_id)) {
       throw new Error(
-        `Invalid receiver account ID: ${value.receiver.account_id}`
+        `Invalid receiver account ID: ${value.receiver.account_id}`,
       );
     }
     if (!validateAccountId(value.sender.account_id)) {

@@ -10,16 +10,61 @@ import {
 import { KeyPairString } from '@near-js/crypto';
 import { UnencryptedFileSystemKeyStore } from '@near-js/keystores-node';
 import { FinalExecutionOutcome, SerializedReturnValue } from '@near-js/types';
+import base58 from 'bs58';
 import { Account, connect, KeyPair } from 'near-api-js';
 import { z } from 'zod';
 import { MCP_SERVER_NAME } from './constants';
-import { NearToken, stringify_bigint, type Result } from './types';
+import {
+  keyTypeToCurvePrefix,
+  NearToken,
+  stringify_bigint,
+  type Result,
+} from './types';
 
 const mcp = new McpServer({
   name: MCP_SERVER_NAME,
   version: '1.0.0',
 });
 const keystore = new UnencryptedFileSystemKeyStore('.near-keystore');
+
+mcp.tool(
+  'sign_data',
+  'Sign a piece of data and base58 encode the result with the private key of a NEAR account the user has access to. Remember mainnet accounts are created with a .near suffix, and testnet accounts are created with a .testnet suffix.',
+  {
+    accountId: z.string(),
+    data: z.string(),
+    networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+  },
+  async (args, _) => {
+    const keyPairResult: Result<KeyPair, Error> = await (async () => {
+      try {
+        return {
+          ok: true,
+          value: await keystore.getKey(args.networkId, args.accountId),
+        };
+      } catch (e) {
+        return { ok: false, error: new Error(e as string) };
+      }
+    })();
+    if (!keyPairResult.ok) {
+      return {
+        content: [
+          { type: 'text', text: `Error: ${keyPairResult.error.message}` },
+        ],
+      };
+    }
+    const keyPair = keyPairResult.value;
+    const signature = keyPair.sign(new TextEncoder().encode(args.data));
+    const curve = keyTypeToCurvePrefix[keyPair.getPublicKey().keyType];
+    const result = {
+      signerAccountId: args.accountId,
+      signature: `${curve}:${base58.encode(signature.signature)}`,
+    };
+    return {
+      content: [{ type: 'text', text: stringify_bigint(result) }],
+    };
+  },
+);
 
 mcp.tool(
   'account_summary',
