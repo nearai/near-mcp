@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.7
+
+### Patch Changes
+
+- Getting closer
+
 ## 0.0.6
 
 ### Patch Changes
