@@ -20,7 +20,6 @@ npm install -g @nearai/near-mcp
 npx @nearai/near-mcp
 ```
 
-
 ## Available Tools
 
 The MCP server provides the following tools:
@@ -47,7 +46,7 @@ This tool is designed to be used with AI models that support the [Model Context 
 ## Security Considerations
 
 - This MCP is meant to be run locally. Account private keys are stored in a local unencrypted keystore where the MCP server is running.
-- The underlying models should not have access to see the private keys of the accounts they are interacting with with *one exception*. The `import_account` tool allows the model to import an account from a private key. This requires the user to provide the private key to the model.
+- The underlying models should not have access to see the private keys of the accounts they are interacting with with _one exception_. The `import_account` tool allows the model to import an account from a private key. This requires the user to provide the private key to the model.
 
 ## Contributing
 
