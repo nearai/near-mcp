@@ -13,14 +13,14 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
-    "build": "rm -rf dist && tsc -b"
+    "build": "rm -rf dist/* && tsc -b"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
   "publishConfig": {
     "access": "public"
   },
@@ -56,8 +56,7 @@
     "eslint-plugin-simple-import-sort": "^10.0.0",
     "prettier": "^3.4.2",
     "shx": "^0.3.3",
-    "ts-loader": "^9.5.1",
-    "ts-node": "^10.9.2",
+    "tsx": "^4.19.3",
     "typescript": "^5.7.2"
   },
   "dependencies": {
