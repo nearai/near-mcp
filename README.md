@@ -16,10 +16,10 @@ The main way `near-mcp` is mean to be used is with MCP compadible service.
 
 ```bash
 # Add to claude code
-claude mcp add near-mcp npx @nearai/near-mcp@latest run
+claude mcp add near-mcp npx -y @nearai/near-mcp@latest run
 
 # or with custom key dir
-claude mcp add near-mcp npx @nearai/near-mcp@latest run --key-dir ~/my-near-keystore
+claude mcp add near-mcp npx -y @nearai/near-mcp@latest run --key-dir ~/my-near-keystore
 ```
 
 Or you can install it globally and use it directly.
