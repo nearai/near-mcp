@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.6
+
+### Patch Changes
+
+- Almost ready for prime time
+
 ## 0.0.5
 
 ### Patch Changes

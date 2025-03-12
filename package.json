@@ -1,7 +1,12 @@
 {
   "name": "@nearai/near-mcp",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "MCP server for interacting with Near Blockchain",
+  "homepage": "https://github.com/near-ai/near-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/near-ai/near-mcp.git"
+  },
   "scripts": {
     "format": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:fix": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
