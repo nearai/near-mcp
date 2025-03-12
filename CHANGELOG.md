@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.9
+
+### Patch Changes
+
+- Fix tsx dep
+
 ## 0.0.8
 
 ### Patch Changes
