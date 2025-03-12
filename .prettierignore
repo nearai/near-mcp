@@ -1,0 +1,41 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+bun.lockb
+
+# Build outputs
+dist
+build
+.next
+out
+
+# Container-related
+.devcontainer
+.docker
+
+# Cache and temp files
+.cache
+.temp
+.tmp
+.DS_Store
+
+# Test coverage
+coverage
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Other tools
+.mypy_cache/
+.near-keystore/
+.github/
+
+# JSON files
+**/*.json
+
+# Skip files with module/CommonJS conflicts
+bin/run.ts
+bin/

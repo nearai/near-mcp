@@ -24,13 +24,30 @@
         ],
         "typescript.tsdk": "/workspace/node_modules/typescript/lib",
         "typescript.enablePromptUseWorkspaceTsdk": true,
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "always",
+          "source.organizeImports": "always"
+        },
         "[typescript]": {
           "editor.defaultFormatter": "esbenp.prettier-vscode",
-          "editor.formatOnSave": true,
-          "editor.codeActionsOnSave": {
-            "source.fixAll.eslint": "always",
-            "source.organizeImports": "always"
-          }
+          "editor.formatOnSave": true
+        },
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+        "[javascriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+        "[json]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
         },
         "terminal.integrated.defaultProfile.linux": "zsh",
         "terminal.integrated.profiles.linux": {
@@ -50,7 +67,8 @@
         "redhat.vscode-yaml",
         "bajdzis.vscode-database",
         "IBM.output-colorizer",
-        "esbenp.prettier-vscode"
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
       ]
     }
   }
