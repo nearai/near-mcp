@@ -1,6 +1,6 @@
 {
   "name": "@nearai/near-mcp",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "MCP server for interacting with Near Blockchain",
   "scripts": {
     "format": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -14,6 +14,7 @@
   "author": "",
   "license": "MIT",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "module",
   "publishConfig": {
     "access": "public"

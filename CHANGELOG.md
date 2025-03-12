@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.5
+
+### Patch Changes
+
+- Another CLI release
+
 ## 0.0.4
 
 ### Patch Changes

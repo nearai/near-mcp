@@ -1,3 +1,3 @@
-export { run } from '@oclif/core';
+export * from './cli';
 export * from './services';
 export * from './utils';

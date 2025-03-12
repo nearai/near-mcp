@@ -22,7 +22,25 @@ export default class Run extends Command {
 
   public async run(): Promise<void> {
     const { flags } = await this.parse(Run);
+    const keyDir = (() => {
+      if (flags['key-dir']) {
+        return flags['key-dir'];
+      }
+
+      const envKeyDir = process.env.NEAR_KEYSTORE;
+      if (envKeyDir) {
+        return envKeyDir;
+      }
+
+      return path.join(homedir(), '.near-keystore');
+    })();
     console.log('Running NEAR MCP server (stdio transport)...');
-    await runMcpServer(flags.keyDir as string);
+    try {
+      await runMcpServer(keyDir);
+    } catch (error) {
+      this.error(
+        error instanceof Error ? error.message : 'Unknown error occurred',
+      );
+    }
   }
 }

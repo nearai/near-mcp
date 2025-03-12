@@ -19,6 +19,8 @@
     /* Bundled projects */
     "lib": ["dom", "dom.iterable", "ES2023"],
     "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "preserve",
@@ -27,9 +29,6 @@
 
     /* Path Aliases */
     "baseUrl": ".",
-    "paths": {
-      "@near-mcp/*": ["./src/*"]
-    }
   },
   "include": [
     "svgr.d.ts",
