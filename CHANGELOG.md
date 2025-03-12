@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.11
+
+### Patch Changes
+
+- Opt in flags
+
 ## 0.0.10
 
 ### Patch Changes
