@@ -3,7 +3,7 @@
     /* Base Options: */
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "target": "es2023",
+    "target": "ES2022",
     "allowJs": true,
     "resolveJsonModule": true,
     "moduleDetection": "force",
@@ -17,7 +17,7 @@
     "checkJs": true,
 
     /* Bundled projects */
-    "lib": ["dom", "dom.iterable", "ES2023"],
+    "lib": ["ES2023"],
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
@@ -28,17 +28,11 @@
     "baseUrl": ".",
   },
   "include": [
-    "svgr.d.ts",
-    ".eslintrc.cjs",
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.cjs",
-    "**/*.js",
-    ".next/types/**/*.ts",
-    "bin/run",
-    "oclif.manifest.json"
-, "prettier.config.cjs"  ],
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.cjs",
+    "src/**/*.js",
+  ],
   "exclude": [
     "dist",
     "node_modules",
