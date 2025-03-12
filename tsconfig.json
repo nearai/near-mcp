@@ -42,7 +42,7 @@
     ".next/types/**/*.ts",
     "bin/run",
     "oclif.manifest.json"
-  ],
+, "prettier.config.cjs"  ],
   "exclude": [
     "dist",
     "node_modules",
