@@ -23,8 +23,7 @@
     "near-mcp": "./bin/run.js"
   },
   "files": [
-    "bin",
-    "dist"
+    "bin"
   ],
   "oclif": {
     "bin": "near-mcp",
