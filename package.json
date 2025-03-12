@@ -8,27 +8,27 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --build"
+    "build": "rm -rf dist && tsc -b"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
   "type": "module",
   "publishConfig": {
     "access": "public"
   },
   "bin": {
-    "near-mcp": "./bin/run.js"
+    "near-mcp": "bin/run"
   },
   "files": [
-    "bin"
+    "bin",
+    "dist"
   ],
   "oclif": {
     "bin": "near-mcp",
     "dirname": "near-mcp",
-    "commands": "./src/commands",
+    "commands": "dist/commands",
     "plugins": [
       "@oclif/plugin-help"
     ],

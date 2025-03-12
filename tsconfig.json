@@ -18,7 +18,7 @@
 
     /* Bundled projects */
     "lib": ["dom", "dom.iterable", "ES2023"],
-    "noEmit": true,
+    "outDir": "dist",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "preserve",
@@ -40,9 +40,13 @@
     "**/*.cjs",
     "**/*.js",
     ".next/types/**/*.ts",
+    "bin/run",
+    "oclif.manifest.json"
   ],
   "exclude": [
+    "dist",
     "node_modules",
-    "eslint.config.mjs"
+    "eslint.config.mjs",
+    "prettier.config.cjs"
   ]
 }
