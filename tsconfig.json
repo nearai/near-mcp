@@ -28,7 +28,7 @@
     /* Path Aliases */
     "baseUrl": ".",
     "paths": {
-      "~/*": ["./src/*"]
+      "@mcp-near/*": ["./src/*"]
     }
   },
   "include": [
