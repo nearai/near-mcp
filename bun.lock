@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "mcp-near",
+      "name": "near-mcp",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.6.1",
         "@near-js/client": "^0.0.3",

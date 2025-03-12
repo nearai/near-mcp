@@ -41,7 +41,7 @@ ENV PATH="/home/$USER/.bun/bin:$PATH"
 
 # Install global deps with Bun
 ARG OPENAPI_GENERATOR_VERSION=2.15.3
-ARG CLAUDE_CODE_VERSION=0.2.32
+ARG CLAUDE_CODE_VERSION=0.2.37
 RUN bun install -g \
     @openapitools/openapi-generator-cli@${OPENAPI_GENERATOR_VERSION} \
     @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \

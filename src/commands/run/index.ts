@@ -1,4 +1,4 @@
-import { runMcpServer } from '@mcp-near/index';
+import { runMcpServer } from '@near-mcp/index';
 import { Command, Flags } from '@oclif/core';
 import { homedir } from 'os';
 import path from 'path';

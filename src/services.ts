@@ -18,14 +18,12 @@ import { Account, connect, KeyPair, Near } from 'near-api-js';
 import { homedir } from 'os';
 import path from 'path';
 import { z } from 'zod';
-import { MCP_SERVER_NAME } from './constants';
 import {
-  keyTypeToCurvePrefix,
-  NearToken,
+  keyTypeToCurvePrefix, MCP_SERVER_NAME, NearToken,
   noLeadingWhitespace,
   stringify_bigint,
-  type Result,
-} from './utils';
+  type Result
+} from "./utils";
 
 const getNetworkFromAccountId = (accountId: string): Result<string, Error> => {
   if (accountId.endsWith('.near')) {
