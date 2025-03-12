@@ -1,5 +1,7 @@
 import { KeyType } from '@near-js/crypto';
-import { YOCTO_NEAR_PER_NEAR } from './constants';
+
+export const YOCTO_NEAR_PER_NEAR = 10 ** 24;
+export const MCP_SERVER_NAME = 'near-mcp';
 
 export type Result<T, E = Error> =
   | { ok: true; value: T }
@@ -82,3 +84,4 @@ export const noLeadingWhitespace = (
   });
   return processedLines.join('\n');
 };
+
