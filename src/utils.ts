@@ -15,6 +15,7 @@ export const keyTypeToCurvePrefix: Record<KeyType, string> = {
 export const stringify_bigint = (val: unknown) => {
   return JSON.stringify(
     val,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     (_, value) => (typeof value === 'bigint' ? value.toString() : value),
     2,
   );
@@ -54,7 +55,7 @@ export class NearToken {
     try {
       const yoctoNearNumber = BigInt(yoctoNear);
       return new NearToken(yoctoNearNumber);
-    } catch (e) {
+    } catch (_) {
       throw new Error(`Invalid yoctoNEAR amount: ${yoctoNear}`);
     }
   }
@@ -71,7 +72,7 @@ export class NearToken {
 
 export const noLeadingWhitespace = (
   strings: TemplateStringsArray,
-  ...values: any[]
+  ...values: unknown[]
 ): string => {
   const combined = strings.reduce((result, str, i) => {
     return result + str + (i < values.length ? String(values[i]) : '');
@@ -84,4 +85,3 @@ export const noLeadingWhitespace = (
   });
   return processedLines.join('\n');
 };
-

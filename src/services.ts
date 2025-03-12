@@ -5,25 +5,31 @@ import {
   getEndpointsByNetwork,
   getProviderByNetwork,
   getSignerFromKeystore,
-  MessageSigner,
+  type MessageSigner,
 } from '@near-js/client';
-import { KeyPairString } from '@near-js/crypto';
+import { type KeyPairString } from '@near-js/crypto';
 import {
   readKeyFile,
   UnencryptedFileSystemKeyStore,
 } from '@near-js/keystores-node';
-import { FinalExecutionOutcome, SerializedReturnValue } from '@near-js/types';
+import {
+  type FinalExecutionOutcome,
+  type SerializedReturnValue,
+} from '@near-js/types';
 import base58 from 'bs58';
-import { Account, connect, KeyPair, Near } from 'near-api-js';
+import { type Account, connect, KeyPair, type Near } from 'near-api-js';
 import { homedir } from 'os';
 import path from 'path';
 import { z } from 'zod';
+
 import {
-  keyTypeToCurvePrefix, MCP_SERVER_NAME, NearToken,
+  keyTypeToCurvePrefix,
+  MCP_SERVER_NAME,
+  NearToken,
   noLeadingWhitespace,
+  type Result,
   stringify_bigint,
-  type Result
-} from "./utils";
+} from './utils';
 
 const getNetworkFromAccountId = (accountId: string): Result<string, Error> => {
   if (accountId.endsWith('.near')) {
@@ -604,7 +610,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
         ]),
       }),
     },
-    async (args, _) => {
+    async (_, __) => {
       return {
         content: [{ type: 'text', text: 'NOT IMPLEMENTED' }],
       };

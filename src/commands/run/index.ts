@@ -22,6 +22,6 @@ export default class Run extends Command {
   public async run(): Promise<void> {
     const { flags } = await this.parse(Run);
     console.log('Running NEAR MCP server (stdio transport)...');
-    await runMcpServer(flags.keyDir);
+    await runMcpServer(flags.keyDir as string);
   }
 }
