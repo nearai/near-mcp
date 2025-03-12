@@ -18,6 +18,7 @@ export default [
   // Ignore patterns
   {
     ignores: [
+      'prettier.config.cjs',
       'eslint.config.mjs',
       'node_modules/**',
       '.next/**',
