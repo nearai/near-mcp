@@ -70,7 +70,6 @@
     "@oclif/core": "^4",
     "@oclif/plugin-help": "^6",
     "@oclif/plugin-plugins": "^5",
-    "@types/bs58": "^4.0.4",
     "borsh": "^2.0.0",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
