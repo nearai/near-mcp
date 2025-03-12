@@ -1,4 +1,4 @@
-# NEAR MCP (Model Context Protocol)
+# NEAR MCP
 
 This project is an [MCP](https://github.com/anthropics/model-context-protocol) compatible server for interacting with the [NEAR blockchain](https://near.org/). This tool provides a way for AI models to securely access and interact with NEAR accounts and blockchain functionality.
 
