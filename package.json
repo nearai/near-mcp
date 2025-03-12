@@ -12,16 +12,19 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "near-mcp": "./bin/run.ts"
   },
   "files": [
-    "./bin",
-    "./dist"
+    "bin",
+    "dist"
   ],
   "oclif": {
     "bin": "near-mcp",
