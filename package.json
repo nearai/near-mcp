@@ -1,15 +1,33 @@
 {
-  "name": "mcp-near",
+  "name": "@nearai/mcp-near",
   "version": "1.0.0",
   "description": "MCP server for interacting with Near Blockchain",
-  "scripts": {
-    "start": "bun run src/services.ts"
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
   "license": "ISC",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "type": "module",
+  "bin": {
+    "mcp-near": "./bin/run.ts"
+  },
+  "files": [
+    "./bin",
+    "./dist"
+  ],
+  "oclif": {
+    "bin": "mcp-near",
+    "dirname": "mcp-near",
+    "commands": "./src/commands",
+    "plugins": [
+      "@oclif/plugin-help"
+    ],
+    "topicSeparator": " "
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
   "devDependencies": {
     "@types/node": "22.10.5",
     "@types/react": "19.0.4",
@@ -17,11 +35,15 @@
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.4.2",
+    "shx": "^0.3.3",
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   },
   "dependencies": {
+    "@oclif/core": "^4",
+    "@oclif/plugin-help": "^6",
+    "@oclif/plugin-plugins": "^5",
     "@modelcontextprotocol/sdk": "^1.6.1",
     "@near-js/client": "^0.0.3",
     "@near-js/crypto": "^1.4.1",
