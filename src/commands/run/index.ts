@@ -1,7 +1,8 @@
-import { runMcpServer } from '@near-mcp/index';
 import { Command, Flags } from '@oclif/core';
 import { homedir } from 'os';
 import path from 'path';
+
+import { runMcpServer } from '../../';
 
 export default class Run extends Command {
   static description = 'Run the NEAR MCP server';
