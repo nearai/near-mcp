@@ -2,24 +2,16 @@
 
 This project is an [MCP](https://github.com/anthropics/model-context-protocol) compatible server for interacting with the [NEAR blockchain](https://near.org/). This tool provides a way for AI models to securely access and interact with NEAR accounts and blockchain functionality.
 
-## Features
-
-- Account management (create, import, list, delete)
-- Transaction signing and execution
-- Token transfers
-- Account information retrieval
-- Account key management
-
 ## Installing
 
 The main way `near-mcp` is mean to be used is with MCP compadible service.
 
 ```bash
 # Add to claude code
-claude mcp add near-mcp npx -y @nearai/near-mcp@latest run
+claude mcp add near-mcp npx @nearai/near-mcp@latest run
 
-# or with custom key dir
-claude mcp add near-mcp npx -y @nearai/near-mcp@latest run --key-dir ~/my-near-keystore
+# Or with custom key dir
+claude mcp add near-mcp npx @nearai/near-mcp@latest run --key-dir ~/my-near-keystore
 ```
 
 Or you can install it globally and use it directly.
@@ -36,15 +28,17 @@ npx @nearai/near-mcp@latest run
 
 The MCP server provides the following tools:
 
-- `sign_data` - Sign a piece of data with a NEAR account's private key
-- `list_local_keypair` - List keypair information for a specific account
-- `list_all_local_keypairs` - List all keypairs in the local keystore
-- `account_summary` - Get summary information about any NEAR account
-- `import_account` - Import an account into the local keystore
-- `list_local_accounts` - List all local NEAR accounts
-- `delete_local_account` - Remove a local NEAR account from the keystore
-- `create_account` - Create a new NEAR account
-- `send_tokens` - Send NEAR tokens to an account
+- `system.list_local_keypairs` - List all accounts and their keypairs in the local keystore by network.
+- `system.import_account` - Import an account into the local keystore.
+- `system.remove_local_account` - Remove a local NEAR account from the local keystore. Once deleted, the account will no longer be available to the user.
+- `account.view_account_summary` - Get summary information about any NEAR account.
+- `account.export_account` - Export an account from the local keystore to a file.
+- `account.sign_data` - Sign a piece of data and base58 encode the result with the private key of a NEAR account the user has access to.
+- `account.create_account` - Create a new NEAR account.
+- `account.list_access_keys` - List all access keys for an account.
+- `account.add_access_key` - Add an access key to an account.
+- `account.delete_access_key` - Delete an access key from an account based on it's public key.
+- `tokens.send_near` - Send NEAR tokens to an account.
 
 ## Integration with AI Models
 
