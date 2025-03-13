@@ -1,6 +1,6 @@
 {
   "name": "@nearai/near-mcp",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "MCP server for interacting with Near Blockchain",
   "homepage": "https://github.com/near-ai/near-mcp",
   "repository": {
@@ -59,7 +59,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.1",
+    "@modelcontextprotocol/sdk": "^1.7.0",
     "@near-js/client": "^0.0.3",
     "@near-js/crypto": "^1.4.1",
     "@near-js/keystores": "^0.2.1",
