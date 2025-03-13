@@ -90,7 +90,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   });
 
   mcp.tool(
-    'system.list_local_keypairs',
+    'system_list_local_keypairs',
     'List all accounts and their keypairs in the local keystore by network.',
     {
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
@@ -115,7 +115,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'system.import_account',
+    'system_import_account',
     noLeadingWhitespace`
     Import an account into the local keystore.
     This will allow the user to use this account in other tools.
@@ -312,7 +312,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'system.remove_local_account',
+    'system_remove_local_account',
     'Removes a local NEAR account from the local keystore. Once deleted, the account will no longer be available to the user.',
     {
       accountId: z.string(),
@@ -344,13 +344,14 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'account.view_account_summary',
+    'account_view_account_summary',
     'Get summary information about any NEAR account. This calls the public RPC endpoint to get this information.',
     {
       accountId: z.string(),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
     },
     async (args, _) => {
+      console.log('args', args);
       const connection = await connect({
         networkId: args.networkId,
         nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
@@ -390,7 +391,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'account.export_account',
+    'account_export_account',
     'Export an account from the local keystore to a file.',
     {
       accountId: z.string(),
@@ -464,7 +465,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'account.sign_data',
+    'account_sign_data',
     noLeadingWhitespace`
     Sign a piece of data and base58 encode the result with the private key
     of a NEAR account the user has access to. Remember mainnet accounts are
@@ -504,7 +505,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'account.create_account',
+    'account_create_account',
     noLeadingWhitespace`
     Create a new NEAR account. The initial balance of this account will be funded by the account that is calling this tool.
     This account will be created with a random public key.
@@ -616,7 +617,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'account.list_access_keys',
+    'account_list_access_keys',
     noLeadingWhitespace`
     List all access keys for an given account.`,
     {
@@ -645,7 +646,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'account.add_access_key',
+    'account_add_access_key',
     noLeadingWhitespace`
     Add an access key to an account. This will allow the account to
     interact with the contract.`,
@@ -678,7 +679,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'account.delete_access_keys',
+    'account_delete_access_keys',
     noLeadingWhitespace`
     Delete an access key from an account based on it's public key.`,
     {
@@ -745,7 +746,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'tokens.send_near',
+    'tokens_send_near',
     noLeadingWhitespace`
     Send NEAR tokens to an account (in NEAR). The signer account
     is the sender of the tokens, and the receiver account is the
