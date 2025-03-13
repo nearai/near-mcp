@@ -17,6 +17,7 @@ import {
   type SerializedReturnValue,
 } from '@near-js/types';
 import base58 from 'bs58';
+import { writeFile } from 'fs/promises';
 import { type Account, connect, KeyPair, type Near } from 'near-api-js';
 import { homedir } from 'os';
 import path from 'path';
@@ -89,69 +90,8 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   });
 
   mcp.tool(
-    'sign_data',
-    noLeadingWhitespace`
-    Sign a piece of data and base58 encode the result with the private key
-    of a NEAR account the user has access to. Remember mainnet accounts are
-    created with a .near suffix, and testnet accounts are created with a
-    .testnet suffix.`,
-    {
-      accountId: z
-        .string()
-        .describe(
-          'The account id of the account that will sign the data. This account must be in the local keystore.',
-        ),
-      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
-      data: z.string(),
-    },
-    async (args, _) => {
-      const keyPairResult: Result<KeyPair, Error> = await getAccountKeyPair(
-        args.accountId,
-        args.networkId,
-        keystore,
-      );
-      if (!keyPairResult.ok) {
-        return {
-          content: [
-            { type: 'text', text: `Error: ${keyPairResult.error.message}` },
-          ],
-        };
-      }
-      const keyPair = keyPairResult.value;
-      const signature = keyPair.sign(new TextEncoder().encode(args.data));
-      const curve = keyTypeToCurvePrefix[keyPair.getPublicKey().keyType];
-      const result = {
-        signerAccountId: args.accountId,
-        signature: `${curve}:${base58.encode(signature.signature)}`,
-      };
-      return {
-        content: [{ type: 'text', text: stringify_bigint(result) }],
-      };
-    },
-  );
-
-  mcp.tool(
-    'list_local_keypair',
-    'List the keypair for a given account in the local keystore',
-    {
-      accountId: z.string(),
-      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
-    },
-    async (args, _) => {
-      const keyPair = await keystore.getKey(args.networkId, args.accountId);
-      const result = {
-        accountId: args.accountId,
-        publicKey: keyPair.getPublicKey().toString(),
-      };
-      return {
-        content: [{ type: 'text', text: stringify_bigint(result) }],
-      };
-    },
-  );
-
-  mcp.tool(
-    'list_all_local_keypairs',
-    'List all keypairs in the local keystore by network.',
+    'system.list_local_keypairs',
+    'List all accounts and their keypairs in the local keystore by network.',
     {
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
     },
@@ -175,55 +115,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'account_summary',
-    'Get summary information about any NEAR account. This calls the public RPC endpoint to get this information.',
-    {
-      accountId: z.string(),
-      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
-    },
-    async (args, _) => {
-      const connection = await connect({
-        networkId: args.networkId,
-        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
-      });
-      const accountResult: Result<Account, Error> = await getAccount(
-        args.accountId,
-        connection,
-      );
-      if (!accountResult.ok) {
-        return {
-          content: [
-            { type: 'text', text: `Error: ${accountResult.error.message}` },
-          ],
-        };
-      }
-      const account = accountResult.value;
-      const balance = await account.getAccountBalance();
-      const state = await account.state();
-      const accessKeys = await account.getAccessKeys();
-      const accountInfo = {
-        balance: {
-          totalBalance: NearToken.parse_yocto_near(balance.total).as_near(),
-          availableBalance: NearToken.parse_yocto_near(
-            balance.available,
-          ).as_near(),
-          stakedBalance: NearToken.parse_yocto_near(balance.staked).as_near(),
-        },
-        state: {
-          blockHeight: state.block_height,
-          codeHash: state.code_hash,
-          storageUsage: state.storage_usage,
-        },
-        accessKeys: accessKeys,
-      };
-      return {
-        content: [{ type: 'text', text: stringify_bigint(accountInfo) }],
-      };
-    },
-  );
-
-  mcp.tool(
-    'import_account',
+    'system.import_account',
     noLeadingWhitespace`
     Import an account into the local keystore.
     This will allow the user to use this account in other tools.
@@ -266,7 +158,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
           if (!accountResult.ok) {
             return {
               content: [
-                { type: 'text', text: `Error: ${accountResult.error.message}` },
+                { type: 'text', text: `Error: ${accountResult.error}` },
               ],
             };
           }
@@ -292,7 +184,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
               content: [
                 {
                   type: 'text',
-                  text: `Error: ${importPrivateKeyResult.error.message}\n\nFailed to import account ${args.args.accountId}`,
+                  text: `Error: ${importPrivateKeyResult.error}\n\nFailed to import account ${args.args.accountId}`,
                 },
               ],
             };
@@ -347,7 +239,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
               content: [
                 {
                   type: 'text',
-                  text: `Error: ${readKeyFileResult.error.message}`,
+                  text: `Error: ${readKeyFileResult.error}`,
                 },
               ],
             };
@@ -361,7 +253,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
               content: [
                 {
                   type: 'text',
-                  text: `Error: ${networkIdResult.error.message}`,
+                  text: `Error: ${networkIdResult.error}`,
                 },
               ],
             };
@@ -379,7 +271,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
               content: [
                 {
                   type: 'text',
-                  text: `Error: ${fromFileAccountResult.error.message}`,
+                  text: `Error: ${fromFileAccountResult.error}`,
                 },
               ],
             };
@@ -420,28 +312,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'list_local_accounts',
-    'Get all local NEAR accounts the user has access to based on the local keystore + which network',
-    {
-      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
-    },
-    async (args, _) => {
-      const accountInfos = await Promise.all(
-        (await keystore.getAccounts(args.networkId)).map(async (accountId) => {
-          const keyPair = await keystore.getKey(args.networkId, accountId);
-          return { accountId, publicKey: keyPair.getPublicKey().toString() };
-        }),
-      );
-      return {
-        content: [
-          { type: 'text', text: JSON.stringify(accountInfos, null, 2) },
-        ],
-      };
-    },
-  );
-
-  mcp.tool(
-    'delete_local_account',
+    'system.remove_local_account',
     'Removes a local NEAR account from the local keystore. Once deleted, the account will no longer be available to the user.',
     {
       accountId: z.string(),
@@ -461,7 +332,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
           content: [
             {
               type: 'text',
-              text: `Error: ${accountRemovalResult.error.message}`,
+              text: `Error: ${accountRemovalResult.error}`,
             },
           ],
         };
@@ -473,7 +344,167 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'create_account',
+    'account.view_account_summary',
+    'Get summary information about any NEAR account. This calls the public RPC endpoint to get this information.',
+    {
+      accountId: z.string(),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+      const accountResult: Result<Account, Error> = await getAccount(
+        args.accountId,
+        connection,
+      );
+      if (!accountResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${accountResult.error}` }],
+        };
+      }
+      const account = accountResult.value;
+      const balance = await account.getAccountBalance();
+      const state = await account.state();
+      const accessKeys = await account.getAccessKeys();
+      const accountInfo = {
+        balance: {
+          totalBalance: NearToken.parse_yocto_near(balance.total).as_near(),
+          availableBalance: NearToken.parse_yocto_near(
+            balance.available,
+          ).as_near(),
+          stakedBalance: NearToken.parse_yocto_near(balance.staked).as_near(),
+        },
+        state: {
+          blockHeight: state.block_height,
+          codeHash: state.code_hash,
+          storageUsage: state.storage_usage,
+        },
+        accessKeys: accessKeys,
+      };
+      return {
+        content: [{ type: 'text', text: stringify_bigint(accountInfo) }],
+      };
+    },
+  );
+
+  mcp.tool(
+    'account.export_account',
+    'Export an account from the local keystore to a file.',
+    {
+      accountId: z.string(),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+      filePath: z
+        .string()
+        .optional()
+        .describe(
+          'The path to the file to write the account to. If not provided, the account will be written to the current working directory.',
+        ),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+      const accountResult: Result<Account, Error> = await getAccount(
+        args.accountId,
+        connection,
+      );
+      if (!accountResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${accountResult.error}` }],
+        };
+      }
+
+      const keypairResult: Result<KeyPair, Error> = await getAccountKeyPair(
+        args.accountId,
+        args.networkId,
+        keystore,
+      );
+      if (!keypairResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${keypairResult.error}` }],
+        };
+      }
+      const keypair = keypairResult.value;
+
+      const writeKeyFileResult: Result<void, Error> = await (async () => {
+        try {
+          const filePayload = {
+            account_id: args.accountId,
+            public_key: keypair.getPublicKey().toString(),
+            private_key: keypair.toString(),
+          };
+          const filePath =
+            args.filePath || `${args.accountId}.${args.networkId}.json`;
+          await writeFile(filePath, JSON.stringify(filePayload, null, 2));
+          return { ok: true, value: undefined };
+        } catch (e) {
+          return { ok: false, error: new Error(e as string) };
+        }
+      })();
+      if (!writeKeyFileResult.ok) {
+        return {
+          content: [
+            { type: 'text', text: `Error: ${writeKeyFileResult.error}` },
+          ],
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Account ${args.accountId} exported to ${args.filePath}`,
+          },
+        ],
+      };
+    },
+  );
+
+  mcp.tool(
+    'account.sign_data',
+    noLeadingWhitespace`
+    Sign a piece of data and base58 encode the result with the private key
+    of a NEAR account the user has access to. Remember mainnet accounts are
+    created with a .near suffix, and testnet accounts are created with a
+    .testnet suffix.`,
+    {
+      accountId: z
+        .string()
+        .describe(
+          'The account id of the account that will sign the data. This account must be in the local keystore.',
+        ),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+      data: z.string(),
+    },
+    async (args, _) => {
+      const keyPairResult: Result<KeyPair, Error> = await getAccountKeyPair(
+        args.accountId,
+        args.networkId,
+        keystore,
+      );
+      if (!keyPairResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${keyPairResult.error}` }],
+        };
+      }
+      const keyPair = keyPairResult.value;
+      const signature = keyPair.sign(new TextEncoder().encode(args.data));
+      const curve = keyTypeToCurvePrefix[keyPair.getPublicKey().keyType];
+      const result = {
+        signerAccountId: args.accountId,
+        signature: `${curve}:${base58.encode(signature.signature)}`,
+      };
+      return {
+        content: [{ type: 'text', text: stringify_bigint(result) }],
+      };
+    },
+  );
+
+  mcp.tool(
+    'account.create_account',
     noLeadingWhitespace`
     Create a new NEAR account. The initial balance of this account will be funded by the account that is calling this tool.
     This account will be created with a random public key.
@@ -509,7 +540,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
           content: [
             {
               type: 'text',
-              text: `Error: ${signer.error.message}\n\nCannot find the account ${args.signerAccountId} in the keystore.`,
+              text: `Error: ${signer.error}\n\nCannot find the account ${args.signerAccountId} in the keystore.`,
             },
           ],
         };
@@ -559,7 +590,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
           content: [
             {
               type: 'text',
-              text: `Error: ${createAccountResult.error.message}\n\nFailed to create account ${newAccountId}`,
+              text: `Error: ${createAccountResult.error}\n\nFailed to create account ${newAccountId}`,
             },
           ],
         };
@@ -585,7 +616,36 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'add_access_key',
+    'account.list_access_keys',
+    noLeadingWhitespace`
+    List all access keys for an given account.`,
+    {
+      accountId: z.string(),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+      const accountResult: Result<Account, Error> = await getAccount(
+        args.accountId,
+        connection,
+      );
+      if (!accountResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${accountResult.error}` }],
+        };
+      }
+      const accessKeys = await accountResult.value.getAccessKeys();
+      return {
+        content: [{ type: 'text', text: JSON.stringify(accessKeys, null, 2) }],
+      };
+    },
+  );
+
+  mcp.tool(
+    'account.add_access_key',
     noLeadingWhitespace`
     Add an access key to an account. This will allow the account to
     interact with the contract.`,
@@ -618,11 +678,82 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'send_tokens',
-    `Send NEAR tokens to an account (in NEAR).
-  Remember mainnet accounts are created with a .near suffix,
-  and testnet accounts are created with a .testnet suffix.
-  The user is sending tokens as the signer account.`,
+    'account.delete_access_keys',
+    noLeadingWhitespace`
+    Delete an access key from an account based on it's public key.`,
+    {
+      accountId: z.string(),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+      publicKey: z.string(),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        keyStore: keystore,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+      const accountResult: Result<Account, Error> = await getAccount(
+        args.accountId,
+        connection,
+      );
+      if (!accountResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${accountResult.error}` }],
+        };
+      }
+      const account = accountResult.value;
+      const accessKeys = await account.getAccessKeys();
+      const accessKey = accessKeys.find(
+        (key) => key.public_key === args.publicKey,
+      );
+      if (!accessKey) {
+        return {
+          content: [{ type: 'text', text: 'Access key not found in account' }],
+        };
+      }
+
+      const deleteAccessKeyResult: Result<FinalExecutionOutcome, Error> =
+        await (async () => {
+          try {
+            return {
+              ok: true,
+              value: await account.deleteKey(accessKey.public_key),
+            };
+          } catch (e) {
+            return { ok: false, error: new Error(e as string) };
+          }
+        })();
+      if (!deleteAccessKeyResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${deleteAccessKeyResult.error}\n\nFailed to delete access key ${args.publicKey} from account ${args.accountId}`,
+            },
+          ],
+        };
+      }
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Access key deleted: ${args.publicKey}`,
+          },
+        ],
+      };
+    },
+  );
+
+  mcp.tool(
+    'tokens.send_near',
+    noLeadingWhitespace`
+    Send NEAR tokens to an account (in NEAR). The signer account
+    is the sender of the tokens, and the receiver account is the
+    recipient of the tokens. Remember mainnet accounts are
+    created with a .near suffix, and testnet accounts are created
+    with a .testnet suffix. The user is sending tokens as the signer
+    account. Please ensure that the sender and receiver accounts
+    are in the same network.`,
     {
       signerAccountId: z.string(),
       receiverAccountId: z.string(),
@@ -652,9 +783,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
         })();
       if (!sendResult.ok) {
         return {
-          content: [
-            { type: 'text', text: `Error: ${sendResult.error.message}` },
-          ],
+          content: [{ type: 'text', text: `Error: ${sendResult.error}` }],
         };
       }
       return {
