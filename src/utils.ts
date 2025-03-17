@@ -1,7 +1,31 @@
 import { KeyType } from '@near-js/crypto';
+import { DEFAULT_FUNCTION_CALL_GAS } from '@near-js/utils';
 
+export const DEFAULT_GAS = DEFAULT_FUNCTION_CALL_GAS * BigInt(10);
 export const YOCTO_NEAR_PER_NEAR = 10 ** 24;
 export const MCP_SERVER_NAME = 'near-mcp';
+
+export const mapSemaphore = async <T, R>(
+  items: T[],
+  concurrency: number,
+  f: (t: T) => Promise<R>,
+): Promise<R[]> => {
+  const results: R[] = [];
+  const promises: Promise<void>[] = [];
+  for (const item of items) {
+    const p = f(item) // process, add result, then self remove
+      .then((v) => {
+        results.push(v);
+      })
+      .finally(() => {
+        void promises.splice(promises.indexOf(p), 1);
+      });
+    promises.push(p);
+    if (promises.length >= concurrency) await Promise.race(promises);
+  }
+  await Promise.all(promises);
+  return results;
+};
 
 export type Result<T, E = Error> =
   | { ok: true; value: T }
@@ -10,6 +34,89 @@ export type Result<T, E = Error> =
 export const keyTypeToCurvePrefix: Record<KeyType, string> = {
   [KeyType.ED25519]: 'ed25519',
   [KeyType.SECP256K1]: 'secp256k1',
+};
+
+type FungibleTokenContract = {
+  contract: string;
+  name: string;
+  symbol: string;
+};
+
+export const getPopularFungibleTokenContracts = async (): Promise<
+  Result<FungibleTokenContract[], Error>
+> => {
+  try {
+    const url =
+      'https://nearblocks.io/_next/data/nearblocks/en/tokens.json?page=1';
+    const response = await fetch(url);
+    const data = (await response.json()) as {
+      pageProps?: {
+        data?: {
+          tokens?: {
+            contract: string;
+            name: string;
+            symbol: string;
+          }[];
+        };
+      };
+    };
+    const tokens = data.pageProps?.data?.tokens;
+    return {
+      ok: true,
+      value: tokens?.map((token) => ({
+        contract: token.contract,
+        name: token.name,
+        symbol: token.symbol,
+      })) as FungibleTokenContract[],
+    };
+  } catch (error) {
+    return { ok: false, error: error as Error };
+  }
+};
+
+export const getFungibleTokenContractInfo = async (
+  accountId: string,
+): Promise<Result<object, Error>> => {
+  // https://nearblocks.io/_next/data/nearblocks/en/token/usdt.tether-token.near.json?id=usdt.tether-token.near
+  try {
+    const url = `https://indexer.ref.finance/token-price/${accountId}.json`;
+    const response = await fetch(url);
+    const data = (await response.json()) as {
+      pageProps?: { statsDetails?: { tokenDetails?: unknown } };
+    };
+    const pageProps = data?.pageProps;
+    const statsDetails = pageProps?.statsDetails;
+    const tokenDetails = statsDetails?.tokenDetails;
+    return {
+      ok: true,
+      value: {
+        statsDetails,
+        tokenDetails,
+      },
+    };
+  } catch (error) {
+    return { ok: false, error: error as Error };
+  }
+};
+
+export const getPopularFungibleTokenContractInfos = async (): Promise<
+  Result<object[], Error>
+> => {
+  const popularFungibleTokenContracts =
+    await getPopularFungibleTokenContracts();
+  if (!popularFungibleTokenContracts.ok) {
+    return { ok: false, error: popularFungibleTokenContracts.error };
+  }
+  const results = (
+    await mapSemaphore(
+      popularFungibleTokenContracts.value.map((token) => token.contract),
+      8,
+      getFungibleTokenContractInfo,
+    )
+  )
+    .filter((result) => result.ok)
+    .map((result) => result.value);
+  return { ok: true, value: results };
 };
 
 export const stringify_bigint = (val: unknown) => {

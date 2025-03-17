@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   createTopLevelAccount,
+  deleteAccount,
   getEndpointsByNetwork,
   getProviderByNetwork,
   getSignerFromKeystore,
@@ -24,6 +25,8 @@ import path from 'path';
 import { z } from 'zod';
 
 import {
+  DEFAULT_GAS,
+  getPopularFungibleTokenContractInfos,
   keyTypeToCurvePrefix,
   MCP_SERVER_NAME,
   NearToken,
@@ -78,6 +81,46 @@ const getAccountSigner = async (
       ok: true,
       value: getSignerFromKeystore(accountId, networkId, keystore),
     };
+  } catch (e) {
+    return { ok: false, error: new Error(e as string) };
+  }
+};
+
+const FungibleTokenMetadataSchema = z.object({
+  spec: z.string(),
+  name: z.string(),
+  symbol: z.string(),
+  icon: z.string().nullable(),
+  reference: z.string().nullable(),
+  reference_hash: z.string().nullable(),
+  decimals: z.number(),
+});
+type FungibleTokenMetadata = z.infer<typeof FungibleTokenMetadataSchema>;
+
+export const getFungibleTokenContractMetadataResult = async (
+  fungibleTokenContractId: string,
+  connection: Near,
+): Promise<Result<FungibleTokenMetadata, Error>> => {
+  try {
+    const contractAccountResult = await getAccount(
+      fungibleTokenContractId,
+      connection,
+    );
+    if (!contractAccountResult.ok) {
+      return contractAccountResult;
+    }
+    const contractAccount = contractAccountResult.value;
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const metadata = await contractAccount.viewFunction({
+      contractId: fungibleTokenContractId,
+      methodName: 'ft_metadata',
+      args: {},
+      gas: DEFAULT_GAS,
+      attachedDeposit: BigInt(1),
+    });
+    const parsedMetadata = FungibleTokenMetadataSchema.parse(metadata);
+    return { ok: true, value: parsedMetadata };
   } catch (e) {
     return { ok: false, error: new Error(e as string) };
   }
@@ -391,6 +434,27 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
+    'system_list_fungible_token_contracts',
+    noLeadingWhitespace`
+    List popular fungible token contract information on the NEAR blockchain.
+    Useful for getting contract information about popular tokens like USDC, USDT, WNEAR, and more.`,
+    {},
+    async (args, _) => {
+      const tokenContracts = await getPopularFungibleTokenContractInfos();
+      if (!tokenContracts.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${tokenContracts.error}` }],
+        };
+      }
+      return {
+        content: [
+          { type: 'text', text: stringify_bigint(tokenContracts.value) },
+        ],
+      };
+    },
+  );
+
+  mcp.tool(
     'account_export_account',
     'Export an account from the local keystore to a file.',
     {
@@ -556,8 +620,6 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
         return args.newAccountId;
       })();
       const keyPair = KeyPair.fromRandom('ed25519');
-
-      // add keypair to keystore
       await keystore.setKey(args.networkId, newAccountId, keyPair);
 
       const createAccountResult: Result<
@@ -610,6 +672,115 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
           {
             type: 'text',
             text: `Account created: ${newAccountId}`,
+          },
+        ],
+      };
+    },
+  );
+
+  mcp.tool(
+    'account_delete_account',
+    noLeadingWhitespace`
+    Delete an account from the NEAR blockchain. This will remove the account from the local keystore and any associated keypair.`,
+    {
+      accountId: z.string().describe('The account to delete.'),
+      beneficiaryAccountId: z
+        .string()
+        .describe(
+          'The account that will receive the remaining balance of the deleted account.',
+        ),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+    },
+    async (args, _) => {
+      const rpcProvider = getProviderByNetwork(args.networkId);
+      const connection = await connect({
+        networkId: args.networkId,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+
+      // ensure both account and beneficiary account exist
+      const accountIdResult: Result<Account, Error> = await getAccount(
+        args.accountId,
+        connection,
+      );
+      if (!accountIdResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${accountIdResult.error}` }],
+        };
+      }
+      const beneficiaryAccountIdResult: Result<Account, Error> =
+        await getAccount(args.beneficiaryAccountId, connection);
+      if (!beneficiaryAccountIdResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${beneficiaryAccountIdResult.error}`,
+            },
+          ],
+        };
+      }
+
+      const signer: Result<MessageSigner, Error> = await getAccountSigner(
+        args.accountId,
+        args.networkId,
+        keystore,
+      );
+      if (!signer.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${signer.error}\n\nCannot find the account ${args.accountId} in the keystore.`,
+            },
+          ],
+        };
+      }
+
+      const deleteAccountResult: Result<
+        {
+          outcome: FinalExecutionOutcome;
+          result: SerializedReturnValue;
+        },
+        Error
+      > = await (async () => {
+        try {
+          return {
+            ok: true,
+            value: await deleteAccount({
+              account: args.accountId,
+              beneficiaryId: args.beneficiaryAccountId,
+              deps: { rpcProvider, signer: signer.value },
+            }),
+          };
+        } catch (e) {
+          return { ok: false, error: new Error(e as string) };
+        }
+      })();
+      if (!deleteAccountResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${deleteAccountResult.error}\n\nFailed to delete account ${args.accountId}`,
+            },
+          ],
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Account deletion result: ${JSON.stringify(
+              deleteAccountResult.value,
+              null,
+              2,
+            )}`,
+          },
+          {
+            type: 'text',
+            text: `Account deleted: ${args.accountId}`,
           },
         ],
       };
@@ -792,6 +963,133 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
           {
             type: 'text',
             text: `Transaction sent: ${stringify_bigint(sendResult.value)}`,
+          },
+        ],
+      };
+    },
+  );
+
+  mcp.tool(
+    'tokens_send_ft',
+    noLeadingWhitespace`
+    Send Fungible Tokens (FT) based on the NEP-141 and NEP-148 standards to an account.
+    The signer account is the sender of the tokens, and the receiver account is the
+    recipient of the tokens. Only mainnet is supported. `,
+    {
+      signerAccountId: z
+        .string()
+        .describe('The account that will send the tokens.'),
+      receiverAccountId: z
+        .string()
+        .describe('The account that will receive the tokens.'),
+      networkId: z.enum(['mainnet']).default('mainnet'),
+      fungibleTokenContractId: z
+        .string()
+        .describe('The contract id of the fungible token.'),
+      amount: z
+        .number()
+        .describe(
+          'The amount of tokens to send in the fungible token contract. e.g. 1 USDC, 0.33 USDT, 1.5 WNEAR, etc.',
+        ),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        keyStore: keystore,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+
+      // check that both the signer and receiver accounts exist
+      const signerAccountResult: Result<Account, Error> = await getAccount(
+        args.signerAccountId,
+        connection,
+      );
+      if (!signerAccountResult.ok) {
+        return {
+          content: [
+            { type: 'text', text: `Error: ${signerAccountResult.error}` },
+          ],
+        };
+      }
+      const receiverAccountResult: Result<Account, Error> = await getAccount(
+        args.receiverAccountId,
+        connection,
+      );
+      if (!receiverAccountResult.ok) {
+        return {
+          content: [
+            { type: 'text', text: `Error: ${receiverAccountResult.error}` },
+          ],
+        };
+      }
+
+      // check that the fungible token contract exists by getting
+      // the metadata of the contract
+      const fungibleTokenContractMetadataResult: Result<
+        FungibleTokenMetadata,
+        Error
+      > = await getFungibleTokenContractMetadataResult(
+        args.fungibleTokenContractId,
+        connection,
+      );
+      if (!fungibleTokenContractMetadataResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${fungibleTokenContractMetadataResult.error}`,
+            },
+          ],
+        };
+      }
+
+      // convert the amount into the decimals of the fungible token
+      const amountInDecimals = BigInt(
+        args.amount * 10 ** fungibleTokenContractMetadataResult.value.decimals,
+      );
+
+      // call the transfer function of the fungible token contract
+      const transferResult: Result<FinalExecutionOutcome, Error> =
+        await (async () => {
+          try {
+            const fungibleTokenContractResult = await getAccount(
+              args.fungibleTokenContractId,
+              connection,
+            );
+            if (!fungibleTokenContractResult.ok) {
+              return fungibleTokenContractResult;
+            }
+            const fungibleTokenContract = fungibleTokenContractResult.value;
+
+            return {
+              ok: true,
+              value: await fungibleTokenContract.functionCall({
+                contractId: args.fungibleTokenContractId,
+                methodName: 'ft_transfer',
+                args: {
+                  receiver_id: args.receiverAccountId,
+                  amount: amountInDecimals.toString(),
+                },
+                gas: DEFAULT_GAS,
+                attachedDeposit:
+                  NearToken.parse_yocto_near('0').as_yocto_near(),
+              }),
+            };
+          } catch (e) {
+            return { ok: false, error: new Error(e as string) };
+          }
+        })();
+      if (!transferResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${transferResult.error}` }],
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Transaction sent: ${stringify_bigint(transferResult.value)}`,
           },
         ],
       };
