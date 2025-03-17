@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.13
+
+### Patch Changes
+
+- tool naming fix
+
 ## 0.0.12
 
 ### Patch Changes

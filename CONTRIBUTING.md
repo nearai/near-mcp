@@ -36,31 +36,36 @@ Thank you for your interest in contributing to NEAR MCP! This document provides 
 ### Development Workflow
 
 1. Make your changes in your feature branch
-2. Run the TypeScript compiler to check for type errors:
+2. To test you changes locally with the `claude` cli, run:
+   ```bash
+   claude mcp add near-mcp ./bin/run run
+   ```
+   This adds the `near-mcp` tool to the `claude` cli from your local build.
+3. Run the TypeScript compiler to check for type errors:
    ```bash
    npm run typecheck
    # or
    bun run typecheck
    ```
-3. Format your code:
+4. Format your code:
    ```bash
    npm run format:fix
    # or
    bun run format:fix
    ```
-4. Run linting:
+5. Run linting:
    ```bash
    npm run lint
    # or
    bun run lint
    ```
-5. Fix any linting issues:
+6. Fix any linting issues:
    ```bash
    npm run lint:fix
    # or
    bun run lint:fix
    ```
-6. Build the project:
+7. Build the project:
    ```bash
    npm run build
    # or
