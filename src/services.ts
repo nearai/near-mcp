@@ -14,6 +14,7 @@ import {
   UnencryptedFileSystemKeyStore,
 } from '@near-js/keystores-node';
 import {
+  type ContractCodeView,
   type FinalExecutionOutcome,
   type SerializedReturnValue,
 } from '@near-js/types';
@@ -23,15 +24,16 @@ import { type Account, connect, KeyPair, type Near } from 'near-api-js';
 import { homedir } from 'os';
 import path from 'path';
 import { z } from 'zod';
+import { ZSTDDecoder } from 'zstddec';
 
 import {
   DEFAULT_GAS,
-  getPopularFungibleTokenContractInfos,
   keyTypeToCurvePrefix,
   MCP_SERVER_NAME,
   NearToken,
   noLeadingWhitespace,
   type Result,
+  searchPopularFungibleTokenContractInfos,
   stringify_bigint,
 } from './utils';
 
@@ -54,7 +56,15 @@ const getAccount = async (
     await account.getAccountBalance();
     return { ok: true, value: account };
   } catch (e) {
-    return { ok: false, error: new Error(e as string) };
+    return {
+      ok: false,
+      error: new Error(
+        `Error getting account by account id ${accountId}: ${e as string}`,
+      ),
+    };// const { parseContract } = createRequire(import.meta.url)(
+      //   'near-contract-parser',
+      // );
+      
   }
 };
 
@@ -117,7 +127,7 @@ export const getFungibleTokenContractMetadataResult = async (
       methodName: 'ft_metadata',
       args: {},
       gas: DEFAULT_GAS,
-      attachedDeposit: BigInt(1),
+      attachedDeposit: NearToken.parse_yocto_near('1').as_yocto_near(),
     });
     const parsedMetadata = FungibleTokenMetadataSchema.parse(metadata);
     return { ok: true, value: parsedMetadata };
@@ -126,11 +136,53 @@ export const getFungibleTokenContractMetadataResult = async (
   }
 };
 
-const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
-  const mcp = new McpServer({
-    name: MCP_SERVER_NAME,
-    version: '1.0.0',
-  });
+export const createMcpServer = async (
+  keystore: UnencryptedFileSystemKeyStore,
+) => {
+  const mcp = new McpServer(
+    {
+      name: MCP_SERVER_NAME,
+      version: '1.0.0',
+    },
+    {
+      instructions: noLeadingWhitespace`
+      # NEAR MCP Server
+
+      Welcome to the NEAR Model Context Protocol (MCP) Server. This server provides a bridge
+      between AI models and the NEAR blockchain ecosystem.
+
+      ## What is NEAR?
+
+      [NEAR](https://near.org/) is a layer-1 blockchain designed for usability and scalability. It features a
+      proof-of-stake consensus mechanism, sharding for scalability, and developer-friendly
+      tools for building decentralized applications.
+
+      ## What this MCP server does:
+
+      This server provides a way to interact with the NEAR blockchain through natural language interfaces. It enables:
+      - Account management: Import, export, and manage NEAR accounts
+      - Token operations: Send and receive NEAR tokens and NEAR Fungible Tokens (FTs)
+      - Contract interactions: Query and interact with smart contracts on the NEAR blockchain
+
+      ## Use cases:
+
+      - Wallet management through conversational interfaces
+      - Token transfers via natural language commands
+      - Smart contract interactions without requiring technical blockchain knowledge
+      - Blockchain data querying and analysis
+      - Educational tool for learning about NEAR blockchain operations
+
+      ## Guidelines
+
+      - When a user refers to the USDC token, they are referring to the USDC native token.
+      - When a user refers to the USDT token, they are referring to the USDT native token.
+
+      ## Extra information
+
+      This server is powered by the NEAR API SDK and serves as a bridge between AI assistants and the NEAR blockchain ecosystem.
+    `,
+    },
+  );
 
   mcp.tool(
     'system_list_local_keypairs',
@@ -356,7 +408,10 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
 
   mcp.tool(
     'system_remove_local_account',
-    'Removes a local NEAR account from the local keystore. Once deleted, the account will no longer be available to the user.',
+    noLeadingWhitespace`
+    Removes a local NEAR account from the local keystore. Once removed, the account
+    will no longer be available to the user. This does not delete the account from
+    the NEAR blockchain, it only removes the account from the local keystore.`,
     {
       accountId: z.string(),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
@@ -381,7 +436,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
         };
       }
       return {
-        content: [{ type: 'text', text: `Account deleted: ${args.accountId}` }],
+        content: [{ type: 'text', text: `Account removed: ${args.accountId}` }],
       };
     },
   );
@@ -434,13 +489,23 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   );
 
   mcp.tool(
-    'system_list_fungible_token_contracts',
+    'system_search_popular_fungible_token_contracts',
     noLeadingWhitespace`
-    List popular fungible token contract information on the NEAR blockchain.
-    Useful for getting contract information about popular tokens like USDC, USDT, WNEAR, and more.`,
-    {},
-    async (args, _) => {
-      const tokenContracts = await getPopularFungibleTokenContractInfos();
+    Search for popular fungible token contract information on the NEAR blockchain, with a grep-like search.
+    Use this tool to search for popular fungible token contract information. This tool works by 'grepping'
+    through a list of contract information JSON objects. Useful for getting contract information about popular
+    tokens like USDC native, USDT, WNEAR, and more.`,
+    {
+      searchTerm: z
+        .string()
+        .describe(
+          'The grep search term to use for filtering popular fungible token contract information.',
+        ),
+    },
+    async (args, __) => {
+      const tokenContracts = await searchPopularFungibleTokenContractInfos(
+        args.searchTerm,
+      );
       if (!tokenContracts.ok) {
         return {
           content: [{ type: 'text', text: `Error: ${tokenContracts.error}` }],
@@ -929,7 +994,9 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
     {
       signerAccountId: z.string(),
       receiverAccountId: z.string(),
-      amount: z.number(),
+      amount: z
+        .number()
+        .describe('The amount of NEAR to send in NEAR. e.g. 1.5'),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
     },
     async (args, _) => {
@@ -942,12 +1009,13 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
         await (async () => {
           try {
             const account = await connection.account(args.signerAccountId);
+            const sendMoneyResult = await account.sendMoney(
+              args.receiverAccountId,
+              NearToken.parse_near(args.amount).as_yocto_near(),
+            );
             return {
               ok: true,
-              value: await account.sendMoney(
-                args.receiverAccountId,
-                NearToken.parse_near(args.amount).as_yocto_near(),
-              ),
+              value: sendMoneyResult,
             };
           } catch (e) {
             return { ok: false, error: new Error(e as string) };
@@ -972,9 +1040,9 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
   mcp.tool(
     'tokens_send_ft',
     noLeadingWhitespace`
-    Send Fungible Tokens (FT) based on the NEP-141 and NEP-148 standards to an account.
+    Send Fungible Tokens (FT) like USDC native, USDT, WNEAR, etc. based on the NEP-141 and NEP-148 standards to an account.
     The signer account is the sender of the tokens, and the receiver account is the
-    recipient of the tokens. Only mainnet is supported. `,
+    recipient of the tokens. Ensure the contract account id exists and is in the same network as the signer and receiver accounts.`,
     {
       signerAccountId: z
         .string()
@@ -983,9 +1051,11 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
         .string()
         .describe('The account that will receive the tokens.'),
       networkId: z.enum(['mainnet']).default('mainnet'),
-      fungibleTokenContractId: z
+      fungibleTokenContractAccountId: z
         .string()
-        .describe('The contract id of the fungible token.'),
+        .describe(
+          'The account id of the fungible token contract. Ensure the contract account id exists and is in the same network as the signer and receiver accounts.',
+        ),
       amount: z
         .number()
         .describe(
@@ -999,37 +1069,13 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
         nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
       });
 
-      // check that both the signer and receiver accounts exist
-      const signerAccountResult: Result<Account, Error> = await getAccount(
-        args.signerAccountId,
-        connection,
-      );
-      if (!signerAccountResult.ok) {
-        return {
-          content: [
-            { type: 'text', text: `Error: ${signerAccountResult.error}` },
-          ],
-        };
-      }
-      const receiverAccountResult: Result<Account, Error> = await getAccount(
-        args.receiverAccountId,
-        connection,
-      );
-      if (!receiverAccountResult.ok) {
-        return {
-          content: [
-            { type: 'text', text: `Error: ${receiverAccountResult.error}` },
-          ],
-        };
-      }
-
       // check that the fungible token contract exists by getting
       // the metadata of the contract
       const fungibleTokenContractMetadataResult: Result<
         FungibleTokenMetadata,
         Error
       > = await getFungibleTokenContractMetadataResult(
-        args.fungibleTokenContractId,
+        args.fungibleTokenContractAccountId,
         connection,
       );
       if (!fungibleTokenContractMetadataResult.ok) {
@@ -1053,7 +1099,7 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
         await (async () => {
           try {
             const fungibleTokenContractResult = await getAccount(
-              args.fungibleTokenContractId,
+              args.fungibleTokenContractAccountId,
               connection,
             );
             if (!fungibleTokenContractResult.ok) {
@@ -1061,18 +1107,25 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
             }
             const fungibleTokenContract = fungibleTokenContractResult.value;
 
+            const senderAccount = await connection.account(
+              args.signerAccountId,
+            );
+            const receiverAccount = await connection.account(
+              args.receiverAccountId,
+            );
+
             return {
               ok: true,
-              value: await fungibleTokenContract.functionCall({
-                contractId: args.fungibleTokenContractId,
+              value: await senderAccount.functionCall({
+                contractId: fungibleTokenContract.accountId,
                 methodName: 'ft_transfer',
                 args: {
-                  receiver_id: args.receiverAccountId,
+                  receiver_id: receiverAccount.accountId,
                   amount: amountInDecimals.toString(),
                 },
                 gas: DEFAULT_GAS,
                 attachedDeposit:
-                  NearToken.parse_yocto_near('0').as_yocto_near(),
+                  NearToken.parse_yocto_near('1').as_yocto_near(),
               }),
             };
           } catch (e) {
@@ -1096,6 +1149,275 @@ const createMcpServer = (keystore: UnencryptedFileSystemKeyStore) => {
     },
   );
 
+  mcp.tool(
+    'contract_view_functions',
+    noLeadingWhitespace`
+    View available functions on a NEAR smart contract.`,
+    {
+      contractId: z.string(),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+
+      const accountResult: Result<Account, Error> = await getAccount(
+        args.contractId,
+        connection,
+      );
+      if (!accountResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${accountResult.error}` }],
+        };
+      }
+
+      const parsedContractABIResult: Result<unknown, Error> =
+        await (async () => {
+          try {
+            const contractABICompressed: unknown =
+              await accountResult.value.viewFunction({
+                contractId: accountResult.value.accountId,
+                methodName: '__contract_abi',
+                args: {},
+                parse: (value) => value,
+              });
+
+            const decoder = new ZSTDDecoder();
+            await decoder.init();
+            const contractABI = new TextDecoder().decode(
+              decoder.decode(contractABICompressed as Buffer),
+            );
+            return {
+              ok: true,
+              value: JSON.parse(contractABI),
+            };
+          } catch (e) {
+            return { ok: false, error: new Error(e as string) };
+          }
+        })();
+      // if the contract ABI is not found, ignore, only return if
+      // the contract ABI is found
+      if (parsedContractABIResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(parsedContractABIResult.value, null, 2),
+            },
+          ],
+        };
+      }
+
+      // fallback to downloading the wasm code and parsing functions
+      const contractCodeResult: Result<string, Error> = await (async () => {
+        try {
+          const view_code =
+            await connection.connection.provider.query<ContractCodeView>({
+              account_id: accountResult.value.accountId,
+              finality: 'final',
+              request_type: 'view_code',
+            });
+
+          return {
+            ok: true,
+            value: view_code.code_base64,
+          };
+        } catch (e) {
+          return { ok: false, error: new Error(e as string) };
+        }
+      })();
+      if (!contractCodeResult.ok) {
+        return {
+          content: [
+            { type: 'text', text: `Error: ${contractCodeResult.error}` },
+          ],
+        };
+      }
+
+      // Decode the base64 contract code
+      const contractCodeBase64 = contractCodeResult.value;
+      const contractCodeBuffer = Buffer.from(contractCodeBase64, 'base64');
+
+      // Parse the contract code using WebAssembly
+      const contractMethodsResult: Result<string[], Error> =
+        await (async () => {
+          try {
+            const wasmModule = await WebAssembly.compile(contractCodeBuffer);
+            const exports = WebAssembly.Module.exports(wasmModule)
+              .filter((exp) => exp.kind === 'function')
+              .map((exp) => exp.name);
+            return {
+              ok: true,
+              value: exports,
+            };
+          } catch (e) {
+            return {
+              ok: false,
+              error: new Error(
+                `Failed to parse WebAssembly: ${e instanceof Error ? e.message : String(e)}`,
+              ),
+            };
+          }
+        })();
+      if (!contractMethodsResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${contractMethodsResult.error}`,
+            },
+          ],
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Contract ${args.contractId} does not have a downloaded ABI. The best we can do is return only the method names that are available in the contract code.`,
+          },
+          {
+            type: 'text',
+            text: `Contract ${args.contractId} methods: ${JSON.stringify(contractMethodsResult.value, null, 2)}`,
+          },
+        ],
+      };
+
+      // TODO: This function uses near blocks api which is rate limited
+      //       and will fail if we call it too many times. We should
+      //       use another method to get the contract methods.
+      // const parsedContractMethodsResult: Result<
+      //   { methodName: string; args: JsonSchema7Type }[],
+      //   Error
+      // > = await (async () => {
+      //   try {
+      //     const results: Result<
+      //       { methodName: string; args: JsonSchema7Type },
+      //       Error
+      //     >[] = await mapSemaphore(
+      //       contractMethodsResult.value,
+      //       8,
+      //       async (methodName) => {
+      //         const parsedMethod = await getParsedContractMethod(
+      //           args.contractId,
+      //           methodName,
+      //         );
+      //         if (!parsedMethod.ok) {
+      //           return parsedMethod;
+      //         }
+      //         const zodArgsResult = json_to_zod(
+      //           parsedMethod.value.action.length > 0
+      //             ? parsedMethod.value.action[0]?.args.args_json
+      //             : {},
+      //         );
+      //         if (!zodArgsResult.ok) {
+      //           return zodArgsResult;
+      //         }
+      //         const jsonSchema = zodToJsonSchema(zodArgsResult.value);
+      //         return {
+      //           ok: true,
+      //           value: {
+      //             args: jsonSchema,
+      //             methodName,
+      //           },
+      //         };
+      //       },
+      //     );
+      //     const errorResult = results.find((result) => !result.ok);
+      //     if (errorResult) {
+      //       return errorResult;
+      //     }
+      //     const okResults = results
+      //       .filter((result) => result.ok)
+      //       .map((result) => result.value);
+      //     return { ok: true, value: okResults };
+      //   } catch (e) {
+      //     return { ok: false, error: new Error(e as string) };
+      //   }
+      // })();
+      // if (!parsedContractMethodsResult.ok) {
+      //   return {
+      //     content: [
+      //       {
+      //         type: 'text',
+      //         text: `Error Parsing Contract Methods: ${parsedContractMethodsResult.error}`,
+      //       },
+      //     ],
+      //   };
+      // }
+      // const parsedContractMethods = parsedContractMethodsResult.value;
+
+      // return {
+      //   content: [
+      //     {
+      //       type: 'text',
+      //       text: JSON.stringify(parsedContractMethods, null, 2),
+      //     },
+      //   ],
+      // };
+    },
+  );
+
+  mcp.tool(
+    'contract_call_function_as_read_only',
+    noLeadingWhitespace`
+    Call a function of a contract as a read-only call. This is equivalent to
+    saying we are calling a view method of the contract.`,
+    {
+      contractId: z.string(),
+      methodName: z.string(),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+      args: z.record(z.string(), z.any()),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+
+      const accountResult: Result<Account, Error> = await getAccount(
+        args.contractId,
+        connection,
+      );
+      if (!accountResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${accountResult.error}` }],
+        };
+      }
+      const account = accountResult.value;
+
+      const viewCallResult: Result<unknown, Error> = await (async () => {
+        try {
+          return {
+            ok: true,
+            value: await account.viewFunction({
+              contractId: args.contractId,
+              methodName: args.methodName,
+              args: args.args,
+            }),
+          };
+        } catch (e) {
+          return { ok: false, error: new Error(e as string) };
+        }
+      })();
+      if (!viewCallResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${viewCallResult.error}` }],
+        };
+      }
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `View call result: ${JSON.stringify(viewCallResult.value)}`,
+          },
+        ],
+      };
+    },
+  );
+
   return mcp;
 };
 
@@ -1103,10 +1425,19 @@ export async function runMcpServer(keystorePath?: string) {
   const actualKeystorePath =
     keystorePath || path.join(homedir(), '.near-keystore');
   const keystore = new UnencryptedFileSystemKeyStore(actualKeystorePath);
-
-  console.log(`Using NEAR keystore at: ${actualKeystorePath}`);
-
-  const mcp = createMcpServer(keystore);
+  const mcp = await createMcpServer(keystore);
   const transport = new StdioServerTransport();
   await mcp.connect(transport);
+  await mcp.server.notification({
+    method: 'log',
+    params: {
+      message: 'NEAR MCP server started ...',
+    },
+  });
+  await mcp.server.notification({
+    method: 'log',
+    params: {
+      message: `Using NEAR keystore at: ${actualKeystorePath}`,
+    },
+  });
 }
