@@ -24,11 +24,14 @@ import { type Account, connect, KeyPair, type Near } from 'near-api-js';
 import { homedir } from 'os';
 import path from 'path';
 import { z } from 'zod';
+import zodToJsonSchema, { type JsonSchema7Type } from 'zod-to-json-schema';
 import { ZSTDDecoder } from 'zstddec';
 
 import {
   curvePrefixToKeyType,
   DEFAULT_GAS,
+  getParsedContractMethod,
+  json_to_zod,
   keyTypeToCurvePrefix,
   MCP_SERVER_NAME,
   NearToken,
@@ -132,6 +135,61 @@ export const getFungibleTokenContractMetadataResult = async (
   } catch (e) {
     return { ok: false, error: new Error(e as string) };
   }
+};
+
+const getContractMethods = async (
+  contractAccountId: string,
+  connection: Near,
+): Promise<Result<string[], Error>> => {
+  const contractCodeResult: Result<string, Error> = await (async () => {
+    try {
+      const view_code =
+        await connection.connection.provider.query<ContractCodeView>({
+          account_id: contractAccountId,
+          finality: 'final',
+          request_type: 'view_code',
+        });
+
+      return {
+        ok: true,
+        value: view_code.code_base64,
+      };
+    } catch (e) {
+      return { ok: false, error: new Error(e as string) };
+    }
+  })();
+  if (!contractCodeResult.ok) {
+    return contractCodeResult;
+  }
+
+  // Decode the base64 contract code
+  const contractCodeBase64 = contractCodeResult.value;
+  const contractCodeBuffer = Buffer.from(contractCodeBase64, 'base64');
+
+  // Parse the contract code using WebAssembly
+  const contractMethodsResult: Result<string[], Error> = await (async () => {
+    try {
+      const wasmModule = await WebAssembly.compile(contractCodeBuffer);
+      const exports = WebAssembly.Module.exports(wasmModule)
+        .filter((exp) => exp.kind === 'function')
+        .map((exp) => exp.name);
+      return {
+        ok: true,
+        value: exports,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        error: new Error(
+          `Failed to parse WebAssembly: ${e instanceof Error ? e.message : String(e)}`,
+        ),
+      };
+    }
+  })();
+  if (!contractMethodsResult.ok) {
+    return contractMethodsResult;
+  }
+  return { ok: true, value: contractMethodsResult.value };
 };
 
 export const createMcpServer = async (
@@ -1433,56 +1491,8 @@ export const createMcpServer = async (
       }
 
       // fallback to downloading the wasm code and parsing functions
-      const contractCodeResult: Result<string, Error> = await (async () => {
-        try {
-          const view_code =
-            await connection.connection.provider.query<ContractCodeView>({
-              account_id: accountResult.value.accountId,
-              finality: 'final',
-              request_type: 'view_code',
-            });
-
-          return {
-            ok: true,
-            value: view_code.code_base64,
-          };
-        } catch (e) {
-          return { ok: false, error: new Error(e as string) };
-        }
-      })();
-      if (!contractCodeResult.ok) {
-        return {
-          content: [
-            { type: 'text', text: `Error: ${contractCodeResult.error}` },
-          ],
-        };
-      }
-
-      // Decode the base64 contract code
-      const contractCodeBase64 = contractCodeResult.value;
-      const contractCodeBuffer = Buffer.from(contractCodeBase64, 'base64');
-
-      // Parse the contract code using WebAssembly
       const contractMethodsResult: Result<string[], Error> =
-        await (async () => {
-          try {
-            const wasmModule = await WebAssembly.compile(contractCodeBuffer);
-            const exports = WebAssembly.Module.exports(wasmModule)
-              .filter((exp) => exp.kind === 'function')
-              .map((exp) => exp.name);
-            return {
-              ok: true,
-              value: exports,
-            };
-          } catch (e) {
-            return {
-              ok: false,
-              error: new Error(
-                `Failed to parse WebAssembly: ${e instanceof Error ? e.message : String(e)}`,
-              ),
-            };
-          }
-        })();
+        await getContractMethods(args.contractId, connection);
       if (!contractMethodsResult.ok) {
         return {
           content: [
@@ -1493,7 +1503,6 @@ export const createMcpServer = async (
           ],
         };
       }
-
       return {
         content: [
           {
@@ -1506,92 +1515,138 @@ export const createMcpServer = async (
           },
         ],
       };
-
-      // TODO: This function uses near blocks api which is rate limited
-      //       and will fail if we call it too many times. We should
-      //       use another method to get the contract methods.
-      // const parsedContractMethodsResult: Result<
-      //   { methodName: string; args: JsonSchema7Type }[],
-      //   Error
-      // > = await (async () => {
-      //   try {
-      //     const results: Result<
-      //       { methodName: string; args: JsonSchema7Type },
-      //       Error
-      //     >[] = await mapSemaphore(
-      //       contractMethodsResult.value,
-      //       8,
-      //       async (methodName) => {
-      //         const parsedMethod = await getParsedContractMethod(
-      //           args.contractId,
-      //           methodName,
-      //         );
-      //         if (!parsedMethod.ok) {
-      //           return parsedMethod;
-      //         }
-      //         const zodArgsResult = json_to_zod(
-      //           parsedMethod.value.action.length > 0
-      //             ? parsedMethod.value.action[0]?.args.args_json
-      //             : {},
-      //         );
-      //         if (!zodArgsResult.ok) {
-      //           return zodArgsResult;
-      //         }
-      //         const jsonSchema = zodToJsonSchema(zodArgsResult.value);
-      //         return {
-      //           ok: true,
-      //           value: {
-      //             args: jsonSchema,
-      //             methodName,
-      //           },
-      //         };
-      //       },
-      //     );
-      //     const errorResult = results.find((result) => !result.ok);
-      //     if (errorResult) {
-      //       return errorResult;
-      //     }
-      //     const okResults = results
-      //       .filter((result) => result.ok)
-      //       .map((result) => result.value);
-      //     return { ok: true, value: okResults };
-      //   } catch (e) {
-      //     return { ok: false, error: new Error(e as string) };
-      //   }
-      // })();
-      // if (!parsedContractMethodsResult.ok) {
-      //   return {
-      //     content: [
-      //       {
-      //         type: 'text',
-      //         text: `Error Parsing Contract Methods: ${parsedContractMethodsResult.error}`,
-      //       },
-      //     ],
-      //   };
-      // }
-      // const parsedContractMethods = parsedContractMethodsResult.value;
-
-      // return {
-      //   content: [
-      //     {
-      //       type: 'text',
-      //       text: JSON.stringify(parsedContractMethods, null, 2),
-      //     },
-      //   ],
-      // };
     },
   );
 
   mcp.tool(
-    'contract_call_function_as_read_only',
+    'contract_auto_detect_function_args',
     noLeadingWhitespace`
-    Call a function of a contract as a read-only call. This is equivalent to
-    saying we are calling a view method of the contract.`,
+    Automatically detect the arguments of a function call by calling nearblocks.io API.
+    This function API checks recent execution results of the contract's method being queried
+    to determine the likely arguments of the function call.
+    Warning: This tool is experimental and is not garunteed to get the correct arguments.`,
     {
       contractId: z.string(),
       methodName: z.string(),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
-      args: z.record(z.string(), z.any()),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+      const contractAccountResult: Result<Account, Error> = await getAccount(
+        args.contractId,
+        connection,
+      );
+      if (!contractAccountResult.ok) {
+        return {
+          content: [
+            { type: 'text', text: `Error: ${contractAccountResult.error}` },
+          ],
+        };
+      }
+
+      const contractMethods = await getContractMethods(
+        args.contractId,
+        connection,
+      );
+      if (!contractMethods.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${contractMethods.error}`,
+            },
+          ],
+        };
+      }
+      if (contractMethods.value.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `No methods found for contract ${args.contractId}`,
+            },
+          ],
+        };
+      }
+      if (!contractMethods.value.includes(args.methodName)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Method ${args.methodName} not found for contract ${args.contractId}`,
+            },
+          ],
+        };
+      }
+
+      // TODO: This function uses near blocks api which is rate limited
+      //       and will fail if we call it too many times. We should
+      //       use another method to get the contract methods.
+      const parsedContractMethodsResult: Result<JsonSchema7Type, Error> =
+        await (async () => {
+          try {
+            const parsedMethod = await getParsedContractMethod(
+              args.contractId,
+              args.methodName,
+            );
+            if (!parsedMethod.ok) {
+              return parsedMethod;
+            }
+            const zodArgsResult = json_to_zod(
+              parsedMethod.value.action.length > 0
+                ? parsedMethod.value.action[0]?.args.args_json
+                : {},
+            );
+            if (!zodArgsResult.ok) {
+              return zodArgsResult;
+            }
+            const jsonSchema = zodToJsonSchema(zodArgsResult.value);
+            return {
+              ok: true,
+              value: jsonSchema,
+            };
+          } catch (e) {
+            return { ok: false, error: new Error(e as string) };
+          }
+        })();
+      if (!parsedContractMethodsResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error Parsing Contract Methods: ${parsedContractMethodsResult.error}`,
+            },
+          ],
+        };
+      }
+      const parsedContractMethods = parsedContractMethodsResult.value;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(parsedContractMethods, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  mcp.tool(
+    'contract_call_raw_function_as_read_only',
+    noLeadingWhitespace`
+    Call a function of a contract as a read-only call. This is equivalent to
+    saying we are calling a view method of the contract.`,
+    {
+      contractId: z.string().describe('The account id of the contract.'),
+      methodName: z.string().describe('The name of the method to call.'),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+      args: z
+        .record(z.string(), z.any())
+        .describe('The arguments to pass to the method.'),
     },
     async (args, _) => {
       const connection = await connect({
@@ -1634,6 +1689,98 @@ export const createMcpServer = async (
           {
             type: 'text',
             text: `View call result: ${JSON.stringify(viewCallResult.value)}`,
+          },
+        ],
+      };
+    },
+  );
+
+  mcp.tool(
+    'contract_call_raw_function',
+    noLeadingWhitespace`
+    Call a function of a contract as a raw function call action. This tool creates a function call
+    as a transaction which costs gas and NEAR.`,
+    {
+      accountId: z.string().describe('The account id of the signer.'),
+      contractAccountId: z.string().describe('The account id of the contract.'),
+      methodName: z.string().describe('The name of the method to call.'),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+      args: z
+        .record(z.string(), z.any())
+        .describe('The arguments to pass to the method.'),
+      gas: z
+        .bigint()
+        .optional()
+        .describe(
+          'The amount of gas to use for the function call (default to 30TGas).',
+        ),
+      attachedDeposit: z
+        .number()
+        .optional()
+        .describe(
+          'The amount of NEAR tokens (in NEAR) to attach to the function call (default to 0.000000000000000000000001 NEAR or 1 yoctoNEAR).',
+        ),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        keyStore: keystore,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+
+      const contractAccountResult: Result<Account, Error> = await getAccount(
+        args.contractAccountId,
+        connection,
+      );
+      if (!contractAccountResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${contractAccountResult.error}`,
+            },
+          ],
+        };
+      }
+      const contractAccount = contractAccountResult.value;
+
+      const functionCallResult: Result<unknown, Error> = await (async () => {
+        try {
+          const deposit = args.attachedDeposit
+            ? NearToken.parse_yocto_near(
+                args.attachedDeposit.toString(),
+              ).as_yocto_near()
+            : NearToken.parse_yocto_near('1').as_yocto_near();
+          const signerAccount = await connection.account(args.accountId);
+          return {
+            ok: true,
+            value: await signerAccount.functionCall({
+              contractId: contractAccount.accountId,
+              methodName: args.methodName,
+              args: args.args,
+              gas: args.gas || DEFAULT_GAS,
+              attachedDeposit: deposit,
+            }),
+          };
+        } catch (e) {
+          return { ok: false, error: new Error(e as string) };
+        }
+      })();
+      if (!functionCallResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${functionCallResult.error}`,
+            },
+          ],
+        };
+      }
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Function call result: ${stringify_bigint(functionCallResult.value)}`,
           },
         ],
       };
