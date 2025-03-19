@@ -13,7 +13,8 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
-    "build": "rm -rf dist/* && tsc -b"
+    "build": "rm -rf dist/* && tsc -b",
+    "cli": "bun run ./bin/run"
   },
   "keywords": [],
   "author": "",
@@ -47,9 +48,9 @@
     "@changesets/cli": "^2.28.1",
     "@eslint/eslintrc": "^3.3.0",
     "@eslint/js": "^9.22.0",
+    "@types/bs58": "^4.0.4",
     "@types/node": "22.10.5",
     "@types/react": "19.0.4",
-    "@types/bs58": "^4.0.4",
     "@typescript-eslint/eslint-plugin": "^8.19.1",
     "@typescript-eslint/parser": "^8.19.1",
     "eslint": "^9.17.0",
@@ -60,6 +61,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.7.0",
+    "@near-js/accounts": "^1.4.0",
     "@near-js/client": "^0.0.3",
     "@near-js/crypto": "^1.4.1",
     "@near-js/keystores": "^0.2.1",
@@ -73,8 +75,10 @@
     "borsh": "^2.0.0",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
-    "commander": "^13.1.0",
     "near-api-js": "^5.0.1",
-    "zod": "^3.24.1"
+    "near-contract-parser": "^1.0.0",
+    "zod": "^3.24.1",
+    "zod-to-json-schema": "^3.24.4",
+    "zstddec": "^0.1.0"
   }
 }
