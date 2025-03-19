@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e
+bun run build
+bun changeset publish
