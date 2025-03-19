@@ -1,4 +1,5 @@
 # Available Tools
+
 ```json
 [
   {
@@ -7,10 +8,7 @@
     "args": {
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       }
     }
@@ -33,10 +31,7 @@
               },
               "networkId": {
                 "type": "string",
-                "enum": [
-                  "testnet",
-                  "mainnet"
-                ],
+                "enum": ["testnet", "mainnet"],
                 "default": "mainnet"
               },
               "privateKey": {
@@ -44,11 +39,7 @@
                 "description": "The private key for the account. If provided, this will be used to import the account."
               }
             },
-            "required": [
-              "op",
-              "accountId",
-              "privateKey"
-            ],
+            "required": ["op", "accountId", "privateKey"],
             "additionalProperties": false
           },
           {
@@ -63,10 +54,7 @@
                 "description": "\nThe path to the file containing the account id, public key, and private key.\nThe file should be in JSON format and the filename should be something\nlike `<accountId>.<networkId>.json`."
               }
             },
-            "required": [
-              "op",
-              "filePath"
-            ],
+            "required": ["op", "filePath"],
             "additionalProperties": false
           }
         ]
@@ -82,10 +70,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       }
     }
@@ -99,10 +84,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       }
     }
@@ -126,10 +108,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       },
       "filePath": {
@@ -148,10 +127,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       },
       "data": {
@@ -177,10 +153,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       }
     }
@@ -199,10 +172,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       }
     }
@@ -216,10 +186,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       }
     }
@@ -233,10 +200,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       },
       "accessKeyArgs": {
@@ -268,24 +232,17 @@
                         }
                       }
                     },
-                    "required": [
-                      "contractId",
-                      "methodNames"
-                    ],
+                    "required": ["contractId", "methodNames"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "FunctionCall"
-                ],
+                "required": ["FunctionCall"],
                 "additionalProperties": false
               }
             ]
           }
         },
-        "required": [
-          "permission"
-        ],
+        "required": ["permission"],
         "additionalProperties": false
       }
     }
@@ -299,10 +256,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       },
       "publicKey": {
@@ -326,10 +280,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       }
     }
@@ -348,9 +299,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "mainnet"
-        ],
+        "enum": ["mainnet"],
         "default": "mainnet"
       },
       "fungibleTokenContractAccountId": {
@@ -372,10 +321,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       }
     }
@@ -392,10 +338,7 @@
       },
       "networkId": {
         "type": "string",
-        "enum": [
-          "testnet",
-          "mainnet"
-        ],
+        "enum": ["testnet", "mainnet"],
         "default": "mainnet"
       },
       "args": {

@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.15
+
+### Patch Changes
+
+- Remove dead code
+
 ## 0.0.14
 
 ### Patch Changes
