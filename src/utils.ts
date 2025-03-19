@@ -230,7 +230,7 @@ export const getParsedContractMethod = async (
       return {
         ok: false,
         error: new Error(
-          `Error parsing contract method ${methodName} for contract ${contractId}. Got: ${JSON.stringify(
+          `Error parsing args for contract ${contractId}, method ${methodName}. Got: ${JSON.stringify(
             responseJson,
             null,
             2,
