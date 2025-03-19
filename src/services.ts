@@ -61,10 +61,7 @@ const getAccount = async (
       error: new Error(
         `Error getting account by account id ${accountId}: ${e as string}`,
       ),
-    };// const { parseContract } = createRequire(import.meta.url)(
-      //   'near-contract-parser',
-      // );
-      
+    };
   }
 };
 
