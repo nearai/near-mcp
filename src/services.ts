@@ -8,7 +8,7 @@ import {
   getSignerFromKeystore,
   type MessageSigner,
 } from '@near-js/client';
-import { type KeyPairString } from '@near-js/crypto';
+import { type KeyPairString, type KeyType, PublicKey } from '@near-js/crypto';
 import {
   readKeyFile,
   UnencryptedFileSystemKeyStore,
@@ -27,6 +27,7 @@ import { z } from 'zod';
 import { ZSTDDecoder } from 'zstddec';
 
 import {
+  curvePrefixToKeyType,
   DEFAULT_GAS,
   keyTypeToCurvePrefix,
   MCP_SERVER_NAME,
@@ -243,20 +244,8 @@ export const createMcpServer = async (
             networkId: args.args.networkId,
             nodeUrl: getEndpointsByNetwork(args.args.networkId)[0]!,
           });
-          const accountResult: Result<Account, Error> = await getAccount(
-            args.args.accountId,
-            connection,
-          );
-          if (!accountResult.ok) {
-            return {
-              content: [
-                { type: 'text', text: `Error: ${accountResult.error}` },
-              ],
-            };
-          }
 
-          // at this point we know the account exists, so we can import the private key
-          const importPrivateKeyResult: Result<KeyPair, Error> = (() => {
+          const serializedPrivateKeyResult: Result<KeyPair, Error> = (() => {
             if (args.args.privateKey) {
               try {
                 return {
@@ -271,24 +260,36 @@ export const createMcpServer = async (
             }
             return { ok: false, error: new Error('No private key provided') };
           })();
-          if (!importPrivateKeyResult.ok) {
+          if (!serializedPrivateKeyResult.ok) {
             return {
               content: [
                 {
                   type: 'text',
-                  text: `Error: ${importPrivateKeyResult.error}\n\nFailed to import account ${args.args.accountId}`,
+                  text: `Failed to import private key. Error: ${serializedPrivateKeyResult.error}`,
                 },
               ],
             };
           }
 
+          const accountResult: Result<Account, Error> = await getAccount(
+            args.args.accountId,
+            connection,
+          );
+          if (!accountResult.ok) {
+            return {
+              content: [
+                { type: 'text', text: `Error: ${accountResult.error}` },
+              ],
+            };
+          }
+          // at this point we know the account exists, so we can import the private key
           // ensure that the private key being imported matches a full access key
           const accessKeys = await accountResult.value.getAccessKeys();
           if (
             !accessKeys.some(
               (key) =>
                 key.public_key ===
-                importPrivateKeyResult.value.getPublicKey().toString(),
+                serializedPrivateKeyResult.value.getPublicKey().toString(),
             )
           ) {
             return {
@@ -305,7 +306,7 @@ export const createMcpServer = async (
           await keystore.setKey(
             args.args.networkId,
             args.args.accountId,
-            importPrivateKeyResult.value,
+            serializedPrivateKeyResult.value,
           );
 
           return {
@@ -593,10 +594,8 @@ export const createMcpServer = async (
   mcp.tool(
     'account_sign_data',
     noLeadingWhitespace`
-    Sign a piece of data and base58 encode the result with the private key
-    of a NEAR account the user has access to. Remember mainnet accounts are
-    created with a .near suffix, and testnet accounts are created with a
-    .testnet suffix.`,
+    Cryptographically sign a piece of data with a local account's private key, then encode the result with the specified encoding.
+    Outputs the curve, encoded signature, and encoding used.`,
     {
       accountId: z
         .string()
@@ -604,7 +603,11 @@ export const createMcpServer = async (
           'The account id of the account that will sign the data. This account must be in the local keystore.',
         ),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
-      data: z.string(),
+      data: z.string().describe('The data to sign.'),
+      signatureEncoding: z
+        .enum(['base58', 'base64'])
+        .default('base58')
+        .describe('The encoding to use for signature creation.'),
     },
     async (args, _) => {
       const keyPairResult: Result<KeyPair, Error> = await getAccountKeyPair(
@@ -618,14 +621,237 @@ export const createMcpServer = async (
         };
       }
       const keyPair = keyPairResult.value;
-      const signature = keyPair.sign(new TextEncoder().encode(args.data));
-      const curve = keyTypeToCurvePrefix[keyPair.getPublicKey().keyType];
-      const result = {
-        signerAccountId: args.accountId,
-        signature: `${curve}:${base58.encode(signature.signature)}`,
+      const signatureRaw = keyPair.sign(new TextEncoder().encode(args.data));
+      const signatureEncodingResult: Result<string, Error> = (() => {
+        try {
+          switch (args.signatureEncoding) {
+            case 'base64':
+              return {
+                ok: true,
+                value: Buffer.from(signatureRaw.signature).toString('base64'),
+              };
+            case 'base58':
+              return {
+                ok: true,
+                value: base58.encode(Buffer.from(signatureRaw.signature)),
+              };
+            default:
+              throw new Error(
+                `Unsupported encoding: ${String(args.signatureEncoding)}`,
+              );
+          }
+        } catch (e) {
+          return { ok: false, error: new Error(e as string) };
+        }
+      })();
+      if (!signatureEncodingResult.ok) {
+        return {
+          content: [
+            { type: 'text', text: `Error: ${signatureEncodingResult.error}` },
+          ],
+        };
+      }
+      const result: Result<
+        {
+          signerAccountId: string;
+          curve: string;
+          signature: string;
+          encoding: string;
+        },
+        Error
+      > = {
+        ok: true,
+        value: {
+          signerAccountId: args.accountId,
+          curve: keyTypeToCurvePrefix(keyPair.getPublicKey().keyType),
+          signature: signatureEncodingResult.value,
+          encoding: args.signatureEncoding,
+        },
       };
       return {
-        content: [{ type: 'text', text: stringify_bigint(result) }],
+        content: [{ type: 'text', text: stringify_bigint(result.value) }],
+      };
+    },
+  );
+
+  mcp.tool(
+    'account_verify_signature',
+    noLeadingWhitespace`
+    Cryptographically verify a signed piece of data against some NEAR account's public key.`,
+    {
+      accountId: z
+        .string()
+        .describe(
+          'The account id to verify the signature against and search for a valid public key.',
+        ),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+      data: z.string().describe('The data to verify.'),
+      signatureArgs: z
+        .object({
+          curve: z.string().describe('The curve used on the signature.'),
+          signatureData: z
+            .string()
+            .describe(
+              'The signature data to verify. Only the encoded signature data is required.',
+            ),
+          encoding: z
+            .enum(['base58', 'base64'])
+            .default('base58')
+            .describe('The encoding used on the signature.'),
+        })
+        .describe('The signature arguments to verify.'),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+      const accountResult: Result<Account, Error> = await getAccount(
+        args.accountId,
+        connection,
+      );
+      if (!accountResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${accountResult.error}` }],
+        };
+      }
+      const accessKeys = await accountResult.value.getAccessKeys();
+
+      const message = new TextEncoder().encode(args.data);
+      const signatureParsedResult: Result<
+        [KeyType, Uint8Array<ArrayBufferLike>],
+        Error
+      > = (() => {
+        try {
+          const curveResult = curvePrefixToKeyType(args.signatureArgs.curve);
+          if (!curveResult.ok) {
+            return curveResult;
+          }
+          const curve = curveResult.value;
+
+          switch (args.signatureArgs.encoding) {
+            case 'base64':
+              return {
+                ok: true,
+                value: [
+                  curve,
+                  Buffer.from(args.signatureArgs.signatureData, 'base64'),
+                ],
+              };
+            case 'base58':
+              return {
+                ok: true,
+                value: [curve, base58.decode(args.signatureArgs.signatureData)],
+              };
+            default:
+              throw new Error(
+                `Unsupported encoding: ${String(args.signatureArgs.encoding)}`,
+              );
+          }
+        } catch (e) {
+          return { ok: false, error: new Error(e as string) };
+        }
+      })();
+      if (!signatureParsedResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Unable to parse signature: ${signatureParsedResult.error}`,
+            },
+          ],
+        };
+      }
+      const [curve, signature] = signatureParsedResult.value;
+
+      const matchingPublicKeyCurveType = accessKeys.find(
+        (key) => PublicKey.fromString(key.public_key).keyType === curve,
+      );
+      if (!matchingPublicKeyCurveType) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Unable to find a valid public key for the account ${args.accountId} with curve ${curve}`,
+            },
+          ],
+        };
+      }
+
+      const matchingPublicKey = accessKeys.find((key) =>
+        PublicKey.fromString(key.public_key).verify(message, signature),
+      );
+      if (!matchingPublicKey) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Unable to find a valid public key for the account ${args.accountId}`,
+            },
+          ],
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: stringify_bigint({
+              message: 'Found matching public key for signature verification.',
+              publicKey: matchingPublicKey,
+            }),
+          },
+        ],
+      };
+    },
+  );
+
+  mcp.tool(
+    'account_create_implicit_account',
+    noLeadingWhitespace`
+    Create an implicit account on the NEAR blockchain. An implicit account is a new random keypair that is not associated with an account ID.
+    Instead the account ID is derived from the public key of the keypair (a 64-character lowercase hexadecimal representation of the public key).
+    This implicit account id can be used just as a regular account id, but remember *it is not* an official account id with a .near or .testnet suffix.
+    `,
+    {
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+    },
+    async (args, _) => {
+      const keyPair = KeyPair.fromRandom('ed25519');
+      const publicKey = keyPair.getPublicKey().toString();
+      const implicitAccountIdResult: Result<string, Error> = (() => {
+        try {
+          return {
+            ok: true,
+            value: Buffer.from(
+              base58.decode(publicKey.split(':')[1]!),
+            ).toString('hex'),
+          };
+        } catch (e) {
+          return { ok: false, error: new Error(e as string) };
+        }
+      })();
+      if (!implicitAccountIdResult.ok) {
+        return {
+          content: [
+            { type: 'text', text: `Error: ${implicitAccountIdResult.error}` },
+          ],
+        };
+      }
+      const implicitAccountId = implicitAccountIdResult.value;
+      await keystore.setKey(args.networkId, implicitAccountId, keyPair);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: stringify_bigint({
+              networkId: args.networkId,
+              implicitAccountId,
+              publicKey,
+            }),
+          },
+        ],
       };
     },
   );
@@ -633,9 +859,8 @@ export const createMcpServer = async (
   mcp.tool(
     'account_create_account',
     noLeadingWhitespace`
-    Create a new NEAR account. The initial balance of this account will be funded by the account that is calling this tool.
-    This account will be created with a random public key.
-    If no account id is provided, a random one will be generated.
+    Create a new NEAR account with a new account ID. The initial balance of this account will be funded by the account that is calling this tool.
+    This account will be created with a random public key. If no account ID is provided, a random one will be generated.
     Ensure that mainnet accounts are created with a .near suffix, and testnet accounts are created with a .testnet suffix.`,
     {
       signerAccountId: z
