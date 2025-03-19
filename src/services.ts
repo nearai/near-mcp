@@ -1026,7 +1026,7 @@ export const createMcpServer = async (
   mcp.tool(
     'account_delete_account',
     noLeadingWhitespace`
-    Delete an account from the NEAR blockchain. This will remove the account from the local keystore and any associated keypair.`,
+    Delete an account from the NEAR blockchain. This will also remove the account from the local keystore and any associated keypair.`,
     {
       accountId: z.string().describe('The account to delete.'),
       beneficiaryAccountId: z
