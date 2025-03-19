@@ -34,7 +34,6 @@ export default class Run extends Command {
 
       return path.join(homedir(), '.near-keystore');
     })();
-    console.log('Running NEAR MCP server (stdio transport)...');
     try {
       await runMcpServer(keyDir);
     } catch (error) {
