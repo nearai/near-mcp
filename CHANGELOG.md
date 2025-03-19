@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.16
+
+### Patch Changes
+
+- FunctionCalling on smart contracts
+
 ## 0.0.15
 
 ### Patch Changes

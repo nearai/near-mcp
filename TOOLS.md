@@ -119,7 +119,7 @@
   },
   {
     "name": "account_sign_data",
-    "description": "\nSign a piece of data and base58 encode the result with the private key\nof a NEAR account the user has access to. Remember mainnet accounts are\ncreated with a .near suffix, and testnet accounts are created with a\n.testnet suffix.",
+    "description": "\nCryptographically sign a piece of data with a local account's private key, then encode the result with the specified encoding.\nOutputs the curve, encoded signature, and encoding used.",
     "args": {
       "accountId": {
         "type": "string",
@@ -131,13 +131,72 @@
         "default": "mainnet"
       },
       "data": {
-        "type": "string"
+        "type": "string",
+        "description": "The data to sign."
+      },
+      "signatureEncoding": {
+        "type": "string",
+        "enum": ["base58", "base64"],
+        "default": "base58",
+        "description": "The encoding to use for signature creation."
+      }
+    }
+  },
+  {
+    "name": "account_verify_signature",
+    "description": "\nCryptographically verify a signed piece of data against some NEAR account's public key.",
+    "args": {
+      "accountId": {
+        "type": "string",
+        "description": "The account id to verify the signature against and search for a valid public key."
+      },
+      "networkId": {
+        "type": "string",
+        "enum": ["testnet", "mainnet"],
+        "default": "mainnet"
+      },
+      "data": {
+        "type": "string",
+        "description": "The data to verify."
+      },
+      "signatureArgs": {
+        "type": "object",
+        "properties": {
+          "curve": {
+            "type": "string",
+            "description": "The curve used on the signature."
+          },
+          "signatureData": {
+            "type": "string",
+            "description": "The signature data to verify. Only the encoded signature data is required."
+          },
+          "encoding": {
+            "type": "string",
+            "enum": ["base58", "base64"],
+            "default": "base58",
+            "description": "The encoding used on the signature."
+          }
+        },
+        "required": ["curve", "signatureData"],
+        "additionalProperties": false,
+        "description": "The signature arguments to verify."
+      }
+    }
+  },
+  {
+    "name": "account_create_implicit_account",
+    "description": "\nCreate an implicit account on the NEAR blockchain. An implicit account is a new random keypair that is not associated with an account ID.\nInstead the account ID is derived from the public key of the keypair (a 64-character lowercase hexadecimal representation of the public key).\nThis implicit account id can be used just as a regular account id, but remember *it is not* an official account id with a .near or .testnet suffix.\n",
+    "args": {
+      "networkId": {
+        "type": "string",
+        "enum": ["testnet", "mainnet"],
+        "default": "mainnet"
       }
     }
   },
   {
     "name": "account_create_account",
-    "description": "\nCreate a new NEAR account. The initial balance of this account will be funded by the account that is calling this tool.\nThis account will be created with a random public key.\nIf no account id is provided, a random one will be generated.\nEnsure that mainnet accounts are created with a .near suffix, and testnet accounts are created with a .testnet suffix.",
+    "description": "\nCreate a new NEAR account with a new account ID. The initial balance of this account will be funded by the account that is calling this tool.\nThis account will be created with a random public key. If no account ID is provided, a random one will be generated.\nEnsure that mainnet accounts are created with a .near suffix, and testnet accounts are created with a .testnet suffix.",
     "args": {
       "signerAccountId": {
         "type": "string",
@@ -160,7 +219,7 @@
   },
   {
     "name": "account_delete_account",
-    "description": "\nDelete an account from the NEAR blockchain. This will remove the account from the local keystore and any associated keypair.",
+    "description": "\nDelete an account from the NEAR blockchain. This will also remove the account from the local keystore and any associated keypair.",
     "args": {
       "accountId": {
         "type": "string",
@@ -327,8 +386,8 @@
     }
   },
   {
-    "name": "contract_call_function_as_read_only",
-    "description": "\nCall a function of a contract as a read-only call. This is equivalent to\nsaying we are calling a view method of the contract.",
+    "name": "contract_auto_detect_function_args",
+    "description": "\nAutomatically detect the arguments of a function call by calling nearblocks.io API.\nThis function API checks recent execution results of the contract's method being queried\nto determine the likely arguments of the function call.\nWarning: This tool is experimental and is not garunteed to get the correct arguments.",
     "args": {
       "contractId": {
         "type": "string"
@@ -340,10 +399,67 @@
         "type": "string",
         "enum": ["testnet", "mainnet"],
         "default": "mainnet"
+      }
+    }
+  },
+  {
+    "name": "contract_call_raw_function_as_read_only",
+    "description": "\nCall a function of a contract as a read-only call. This is equivalent to\nsaying we are calling a view method of the contract.",
+    "args": {
+      "contractId": {
+        "type": "string",
+        "description": "The account id of the contract."
+      },
+      "methodName": {
+        "type": "string",
+        "description": "The name of the method to call."
+      },
+      "networkId": {
+        "type": "string",
+        "enum": ["testnet", "mainnet"],
+        "default": "mainnet"
       },
       "args": {
         "type": "object",
-        "additionalProperties": {}
+        "additionalProperties": {},
+        "description": "The arguments to pass to the method."
+      }
+    }
+  },
+  {
+    "name": "contract_call_raw_function",
+    "description": "\nCall a function of a contract as a raw function call action. This tool creates a function call\nas a transaction which costs gas and NEAR.",
+    "args": {
+      "accountId": {
+        "type": "string",
+        "description": "The account id of the signer."
+      },
+      "contractAccountId": {
+        "type": "string",
+        "description": "The account id of the contract."
+      },
+      "methodName": {
+        "type": "string",
+        "description": "The name of the method to call."
+      },
+      "networkId": {
+        "type": "string",
+        "enum": ["testnet", "mainnet"],
+        "default": "mainnet"
+      },
+      "args": {
+        "type": "object",
+        "additionalProperties": {},
+        "description": "The arguments to pass to the method."
+      },
+      "gas": {
+        "type": "integer",
+        "format": "int64",
+        "description": "The amount of gas to use for the function call (default to 30TGas)."
+      },
+      "attachedDeposit": {
+        "type": "number",
+        "description": "The amount of NEAR tokens (in NEAR) to attach to the function call (default to 0.000000000000000000000001 NEAR or 1 yoctoNEAR)."
       }
     }
   }
