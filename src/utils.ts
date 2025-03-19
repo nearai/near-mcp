@@ -32,9 +32,28 @@ export type Result<T, E = Error> =
   | { ok: true; value: T }
   | { ok: false; error: E };
 
-export const keyTypeToCurvePrefix: Record<KeyType, string> = {
-  [KeyType.ED25519]: 'ed25519',
-  [KeyType.SECP256K1]: 'secp256k1',
+export const keyTypeToCurvePrefix = (keyType: KeyType) => {
+  switch (keyType) {
+    case KeyType.ED25519:
+      return 'ed25519';
+    case KeyType.SECP256K1:
+      return 'secp256k1';
+  }
+};
+export const curvePrefixToKeyType = (
+  curvePrefix: string,
+): Result<KeyType, Error> => {
+  switch (curvePrefix.toLowerCase()) {
+    case 'ed25519':
+      return { ok: true, value: KeyType.ED25519 };
+    case 'secp256k1':
+      return { ok: true, value: KeyType.SECP256K1 };
+    default:
+      return {
+        ok: false,
+        error: new Error(`Unsupported curve prefix: ${curvePrefix}`),
+      };
+  }
 };
 
 type FungibleTokenContract = {
