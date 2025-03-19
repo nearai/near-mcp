@@ -17,7 +17,7 @@
     "checkJs": true,
 
     /* Bundled projects */
-    "lib": ["ES2023"],
+    "lib": ["esnext", "dom"],
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
