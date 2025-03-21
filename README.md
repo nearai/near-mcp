@@ -30,7 +30,7 @@ Adding via JSON config:
 }
 ```
 
-Adding to `goose`
+Adding to [`goose`](https://block.github.io/goose/)
 
 ```
 ┌   goose-configure
