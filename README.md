@@ -4,11 +4,11 @@
 
 # NEAR MCP
 
-This project is an [MCP](https://github.com/anthropics/model-context-protocol) compatible server for interacting with the [NEAR blockchain](https://near.org/). This tool provides a way for LLMs and AI agents to securely access and interact with NEAR accounts and blockchain functionality.
+This project is a Model Context Protocol ([MCP](https://github.com/modelcontextprotocol)) compatible server for interacting with the [NEAR blockchain](https://near.org/). This tool provides a way for LLMs and AI agents to securely access and interact with NEAR accounts and blockchain functionality.
 
 ## Installing
 
-The main way `near-mcp` is mean to be used is with an MCP compadible service.
+The main way `near-mcp` is mean to be used is with an MCP compatible service.
 
 Adding to the [`claude` code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) cli:
 
@@ -72,7 +72,7 @@ see [TOOLS.md](./TOOLS.md) for a list of available tools and arguments.
 
 ## Integration with AI Models
 
-This tool is designed to be used with AI models that support the [Model Context Protocol](https://github.com/anthropics/model-context-protocol). It enables AI assistants to:
+This tool is designed to be used with AI models that support the [Model Context Protocol](https://github.com/modelcontextprotocol). It enables AI assistants to:
 
 1. Manage NEAR accounts on behalf of users
 2. Check account balances and status
