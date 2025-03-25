@@ -78,6 +78,7 @@ This tool is designed to be used with AI models that support the [Model Context 
 2. Check account balances and status
 3. Sign and send transactions
 4. Create new accounts and manage access keys
+5. Inspect and execution smart contracts
 
 ## Security Considerations
 
