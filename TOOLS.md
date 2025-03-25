@@ -66,7 +66,8 @@
     "description": "\nRemoves a local NEAR account from the local keystore. Once removed, the account\nwill no longer be available to the user. This does not delete the account from\nthe NEAR blockchain, it only removes the account from the local keystore.",
     "args": {
       "accountId": {
-        "type": "string"
+        "type": "string",
+        "description": "The local account id to remove from the local keystore."
       },
       "networkId": {
         "type": "string",
@@ -93,9 +94,9 @@
     "name": "system_search_popular_fungible_token_contracts",
     "description": "\nSearch for popular fungible token contract information on the NEAR blockchain, with a grep-like search.\nUse this tool to search for popular fungible token contract information. This tool works by 'grepping'\nthrough a list of contract information JSON objects. Useful for getting contract information about popular\ntokens like USDC native, USDT, WNEAR, and more.",
     "args": {
-      "searchTerm": {
+      "searchPattern": {
         "type": "string",
-        "description": "The grep search term to use for filtering popular fungible token contract information."
+        "description": "The grep search pattern to use for filtering popular fungible token contract information."
       }
     }
   },
@@ -132,7 +133,7 @@
       },
       "data": {
         "type": "string",
-        "description": "The data to sign."
+        "description": "The data to sign as a string."
       },
       "signatureEncoding": {
         "type": "string",
@@ -185,7 +186,7 @@
   },
   {
     "name": "account_create_implicit_account",
-    "description": "\nCreate an implicit account on the NEAR blockchain. An implicit account is a new random keypair that is not associated with an account ID.\nInstead the account ID is derived from the public key of the keypair (a 64-character lowercase hexadecimal representation of the public key).\nThis implicit account id can be used just as a regular account id, but remember *it is not* an official account id with a .near or .testnet suffix.\n",
+    "description": "\nCreate an implicit account on the NEAR blockchain. An implicit account is a new random keypair that is not associated with an account ID.\nInstead the account ID is derived from the public key of the keypair (a 64-character lowercase hexadecimal representation of the public key).\nThis implicit account id can be used just as a regular account id, but remember *it is not* an official account id with a .near or .testnet suffix.\nCreating implicit accounts is useful for adding new access keys to an existing account.\n",
     "args": {
       "networkId": {
         "type": "string",
@@ -268,12 +269,31 @@
           "permission": {
             "anyOf": [
               {
-                "type": "string",
-                "const": "FullAccess"
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "FullAccess"
+                  },
+                  "publicKey": {
+                    "type": "string",
+                    "description": "The public key of the access key."
+                  }
+                },
+                "required": ["type", "publicKey"],
+                "additionalProperties": false
               },
               {
                 "type": "object",
                 "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "FunctionCall"
+                  },
+                  "publicKey": {
+                    "type": "string",
+                    "description": "The public key of the access key."
+                  },
                   "FunctionCall": {
                     "type": "object",
                     "properties": {
@@ -281,8 +301,9 @@
                         "type": "string"
                       },
                       "allowance": {
-                        "type": "number",
-                        "description": "The allowance of the function call access key in NEAR."
+                        "type": ["number", "integer"],
+                        "default": 1.0000000000000001e-24,
+                        "description": "The allowance of the function call access key."
                       },
                       "methodNames": {
                         "type": "array",
@@ -295,7 +316,7 @@
                     "additionalProperties": false
                   }
                 },
-                "required": ["FunctionCall"],
+                "required": ["type", "publicKey", "FunctionCall"],
                 "additionalProperties": false
               }
             ]
@@ -334,7 +355,8 @@
         "type": "string"
       },
       "amount": {
-        "type": "number",
+        "type": ["number", "integer"],
+        "default": 1.0000000000000001e-24,
         "description": "The amount of NEAR to send in NEAR. e.g. 1.5"
       },
       "networkId": {
@@ -386,8 +408,8 @@
     }
   },
   {
-    "name": "contract_auto_detect_function_args",
-    "description": "\nAutomatically detect the arguments of a function call by calling nearblocks.io API.\nThis function API checks recent execution results of the contract's method being queried\nto determine the likely arguments of the function call.\nWarning: This tool is experimental and is not garunteed to get the correct arguments.",
+    "name": "contract_get_function_args",
+    "description": "\nGet the arguments of a function call by parsing the contract's ABI or by using the nearblocks.io API (as a fallback).\nThis function API checks recent execution results of the contract's method being queried\nto determine the likely arguments of the function call.\nWarning: This tool is experimental and is not garunteed to get the correct arguments.",
     "args": {
       "contractId": {
         "type": "string"
@@ -455,11 +477,12 @@
       "gas": {
         "type": "integer",
         "format": "int64",
-        "description": "The amount of gas to use for the function call (default to 30TGas)."
+        "description": "The amount of gas to use for the function call in yoctoNEAR (default to 30TGas)."
       },
       "attachedDeposit": {
-        "type": "number",
-        "description": "The amount of NEAR tokens (in NEAR) to attach to the function call (default to 0.000000000000000000000001 NEAR or 1 yoctoNEAR)."
+        "type": ["number", "integer"],
+        "default": 1.0000000000000001e-24,
+        "description": "The amount to attach to the function call (default to 1 yoctoNEAR). Can be specified as a number (in NEAR) or as a bigint (in yoctoNEAR)."
       }
     }
   }
