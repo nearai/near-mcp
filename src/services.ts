@@ -20,6 +20,7 @@ import {
 } from '@near-js/types';
 import base58 from 'bs58';
 import { writeFile } from 'fs/promises';
+import { type AbiRoot } from 'near-abi';
 import { type Account, connect, KeyPair, type Near } from 'near-api-js';
 import { homedir } from 'os';
 import path from 'path';
@@ -190,6 +191,32 @@ const getContractMethods = async (
     return contractMethodsResult;
   }
   return { ok: true, value: contractMethodsResult.value };
+};
+
+const getContractABI = async (
+  account: Account,
+  contractAccountId: string,
+): Promise<Result<AbiRoot, Error>> => {
+  try {
+    const contractABICompressed: unknown = await account.viewFunction({
+      contractId: contractAccountId,
+      methodName: '__contract_abi',
+      args: {},
+      parse: (value) => value,
+    });
+
+    const decoder = new ZSTDDecoder();
+    await decoder.init();
+    const contractABI = new TextDecoder().decode(
+      decoder.decode(contractABICompressed as Buffer),
+    );
+    return {
+      ok: true,
+      value: JSON.parse(contractABI) as AbiRoot,
+    };
+  } catch (e) {
+    return { ok: false, error: new Error(e as string) };
+  }
 };
 
 export const createMcpServer = async (
@@ -469,7 +496,9 @@ export const createMcpServer = async (
     will no longer be available to the user. This does not delete the account from
     the NEAR blockchain, it only removes the account from the local keystore.`,
     {
-      accountId: z.string(),
+      accountId: z
+        .string()
+        .describe('The local account id to remove from the local keystore.'),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
     },
     async (args, _) => {
@@ -552,15 +581,15 @@ export const createMcpServer = async (
     through a list of contract information JSON objects. Useful for getting contract information about popular
     tokens like USDC native, USDT, WNEAR, and more.`,
     {
-      searchTerm: z
+      searchPattern: z
         .string()
         .describe(
-          'The grep search term to use for filtering popular fungible token contract information.',
+          'The grep search pattern to use for filtering popular fungible token contract information.',
         ),
     },
     async (args, __) => {
       const tokenContracts = await searchPopularFungibleTokenContractInfos(
-        args.searchTerm,
+        args.searchPattern,
       );
       if (!tokenContracts.ok) {
         return {
@@ -661,7 +690,7 @@ export const createMcpServer = async (
           'The account id of the account that will sign the data. This account must be in the local keystore.',
         ),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
-      data: z.string().describe('The data to sign.'),
+      data: z.string().describe('The data to sign as a string.'),
       signatureEncoding: z
         .enum(['base58', 'base64'])
         .default('base58')
@@ -709,25 +738,19 @@ export const createMcpServer = async (
           ],
         };
       }
-      const result: Result<
-        {
-          signerAccountId: string;
-          curve: string;
-          signature: string;
-          encoding: string;
-        },
-        Error
-      > = {
-        ok: true,
-        value: {
-          signerAccountId: args.accountId,
-          curve: keyTypeToCurvePrefix(keyPair.getPublicKey().keyType),
-          signature: signatureEncodingResult.value,
-          encoding: args.signatureEncoding,
-        },
-      };
+
       return {
-        content: [{ type: 'text', text: stringify_bigint(result.value) }],
+        content: [
+          {
+            type: 'text',
+            text: stringify_bigint({
+              signerAccountId: args.accountId,
+              curve: keyTypeToCurvePrefix(keyPair.getPublicKey().keyType),
+              signature: signatureEncodingResult.value,
+              encoding: args.signatureEncoding,
+            }),
+          },
+        ],
       };
     },
   );
@@ -870,6 +893,7 @@ export const createMcpServer = async (
     Create an implicit account on the NEAR blockchain. An implicit account is a new random keypair that is not associated with an account ID.
     Instead the account ID is derived from the public key of the keypair (a 64-character lowercase hexadecimal representation of the public key).
     This implicit account id can be used just as a regular account id, but remember *it is not* an official account id with a .near or .testnet suffix.
+    Creating implicit accounts is useful for adding new access keys to an existing account.
     `,
     {
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
@@ -1171,25 +1195,108 @@ export const createMcpServer = async (
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
       accessKeyArgs: z.object({
         permission: z.union([
-          z.literal('FullAccess'),
           z.object({
+            type: z.literal('FullAccess'),
+            publicKey: z.string().describe('The public key of the access key.'),
+          }),
+          z.object({
+            type: z.literal('FunctionCall'),
+            publicKey: z.string().describe('The public key of the access key.'),
             FunctionCall: z.object({
               contractId: z.string(),
               allowance: z
-                .number()
-                .optional()
-                .describe(
-                  'The allowance of the function call access key in NEAR.',
-                ),
+                .union([
+                  z.number().describe('The amount of NEAR tokens (in NEAR)'),
+                  z.bigint().describe('The amount in yoctoNEAR'),
+                ])
+                .default(1n)
+                .describe('The allowance of the function call access key.'),
               methodNames: z.array(z.string()),
             }),
           }),
         ]),
       }),
     },
-    async (_, __) => {
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        keyStore: keystore,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+
+      const accountResult: Result<Account, Error> = await getAccount(
+        args.accountId,
+        connection,
+      );
+      if (!accountResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${accountResult.error}` }],
+        };
+      }
+      const account = accountResult.value;
+
+      const addAccessKeyResult: Result<FinalExecutionOutcome, Error> =
+        await (async () => {
+          try {
+            switch (args.accessKeyArgs.permission.type) {
+              case 'FullAccess':
+                return {
+                  ok: true,
+                  value: await account.addKey(
+                    args.accessKeyArgs.permission.publicKey,
+                  ),
+                };
+              case 'FunctionCall':
+                const allowance =
+                  typeof args.accessKeyArgs.permission.FunctionCall
+                    .allowance === 'number'
+                    ? NearToken.parse_near(
+                        args.accessKeyArgs.permission.FunctionCall.allowance.toString(),
+                      ).as_yocto_near()
+                    : args.accessKeyArgs.permission.FunctionCall.allowance;
+
+                return {
+                  ok: true,
+                  value: await account.addKey(
+                    args.accessKeyArgs.permission.publicKey,
+                    args.accessKeyArgs.permission.FunctionCall.contractId,
+                    args.accessKeyArgs.permission.FunctionCall.methodNames,
+                    allowance,
+                  ),
+                };
+            }
+          } catch (e) {
+            return { ok: false, error: new Error(e as string) };
+          }
+        })();
+      if (!addAccessKeyResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${addAccessKeyResult.error}\n\nFailed to add access key to account ${args.accountId}`,
+            },
+          ],
+        };
+      }
+
       return {
-        content: [{ type: 'text', text: 'NOT IMPLEMENTED' }],
+        content: [
+          {
+            type: 'text',
+            text: `Add access key transaction result: ${stringify_bigint({
+              final_execution_status:
+                addAccessKeyResult.value.final_execution_status,
+              status: addAccessKeyResult.value.status,
+              transaction_outcome: addAccessKeyResult.value.transaction_outcome,
+              receipts_outcome: addAccessKeyResult.value.receipts_outcome,
+            })}`,
+          },
+          {
+            type: 'text',
+            text: `Access key added: ${args.accessKeyArgs.permission.publicKey}`,
+          },
+        ],
       };
     },
   );
@@ -1453,43 +1560,6 @@ export const createMcpServer = async (
         };
       }
 
-      const parsedContractABIResult: Result<unknown, Error> =
-        await (async () => {
-          try {
-            const contractABICompressed: unknown =
-              await accountResult.value.viewFunction({
-                contractId: accountResult.value.accountId,
-                methodName: '__contract_abi',
-                args: {},
-                parse: (value) => value,
-              });
-
-            const decoder = new ZSTDDecoder();
-            await decoder.init();
-            const contractABI = new TextDecoder().decode(
-              decoder.decode(contractABICompressed as Buffer),
-            );
-            return {
-              ok: true,
-              value: JSON.parse(contractABI),
-            };
-          } catch (e) {
-            return { ok: false, error: new Error(e as string) };
-          }
-        })();
-      // if the contract ABI is not found, ignore, only return if
-      // the contract ABI is found
-      if (parsedContractABIResult.ok) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(parsedContractABIResult.value, null, 2),
-            },
-          ],
-        };
-      }
-
       // fallback to downloading the wasm code and parsing functions
       const contractMethodsResult: Result<string[], Error> =
         await getContractMethods(args.contractId, connection);
@@ -1507,10 +1577,6 @@ export const createMcpServer = async (
         content: [
           {
             type: 'text',
-            text: `Contract ${args.contractId} does not have a downloaded ABI. The best we can do is return only the method names that are available in the contract code.`,
-          },
-          {
-            type: 'text',
             text: `Contract ${args.contractId} methods: ${JSON.stringify(contractMethodsResult.value, null, 2)}`,
           },
         ],
@@ -1519,9 +1585,9 @@ export const createMcpServer = async (
   );
 
   mcp.tool(
-    'contract_auto_detect_function_args',
+    'contract_get_function_args',
     noLeadingWhitespace`
-    Automatically detect the arguments of a function call by calling nearblocks.io API.
+    Get the arguments of a function call by parsing the contract's ABI or by using the nearblocks.io API (as a fallback).
     This function API checks recent execution results of the contract's method being queried
     to determine the likely arguments of the function call.
     Warning: This tool is experimental and is not garunteed to get the correct arguments.`,
@@ -1577,6 +1643,45 @@ export const createMcpServer = async (
             {
               type: 'text',
               text: `Method ${args.methodName} not found for contract ${args.contractId}`,
+            },
+          ],
+        };
+      }
+
+      const parsedContractABIResult = await getContractABI(
+        contractAccountResult.value,
+        args.contractId,
+      );
+
+      // if the contract ABI is not found, ignore, only return if
+      // the contract ABI is found
+      if (parsedContractABIResult.ok) {
+        const abi = parsedContractABIResult.value;
+        const method = abi.body.functions.find(
+          (method) => method.name === args.methodName,
+        );
+        if (!method) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Method ${args.methodName} not found in contract ${args.contractId}`,
+              },
+            ],
+          };
+        }
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  ...method,
+                  args: method.params?.args || {},
+                },
+                null,
+                2,
+              ),
             },
           ],
         };
@@ -1712,13 +1817,16 @@ export const createMcpServer = async (
         .bigint()
         .optional()
         .describe(
-          'The amount of gas to use for the function call (default to 30TGas).',
+          'The amount of gas to use for the function call in yoctoNEAR (default to 30TGas).',
         ),
       attachedDeposit: z
-        .number()
-        .optional()
+        .union([
+          z.number().describe('The amount of NEAR tokens (in NEAR)'),
+          z.bigint().describe('The amount in yoctoNEAR'),
+        ])
+        .default(1n)
         .describe(
-          'The amount of NEAR tokens (in NEAR) to attach to the function call (default to 0.000000000000000000000001 NEAR or 1 yoctoNEAR).',
+          'The amount to attach to the function call (default to 1 yoctoNEAR). Can be specified as a number (in NEAR) or as a bigint (in yoctoNEAR).',
         ),
     },
     async (args, _) => {
@@ -1746,11 +1854,12 @@ export const createMcpServer = async (
 
       const functionCallResult: Result<unknown, Error> = await (async () => {
         try {
-          const deposit = args.attachedDeposit
-            ? NearToken.parse_yocto_near(
-                args.attachedDeposit.toString(),
-              ).as_yocto_near()
-            : NearToken.parse_yocto_near('1').as_yocto_near();
+          const deposit =
+            typeof args.attachedDeposit === 'number'
+              ? NearToken.parse_near(
+                  args.attachedDeposit.toString(),
+                ).as_yocto_near()
+              : args.attachedDeposit;
           const signerAccount = await connection.account(args.accountId);
           return {
             ok: true,
