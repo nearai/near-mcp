@@ -1032,10 +1032,8 @@ export const createMcpServer = async (
         content: [
           {
             type: 'text',
-            text: `Account creation result: ${JSON.stringify(
+            text: `Account creation result: ${stringify_bigint(
               createAccountResult.value,
-              null,
-              2,
             )}`,
           },
           {
@@ -1141,10 +1139,8 @@ export const createMcpServer = async (
         content: [
           {
             type: 'text',
-            text: `Account deletion result: ${JSON.stringify(
+            text: `Account deletion result: ${stringify_bigint(
               deleteAccountResult.value,
-              null,
-              2,
             )}`,
           },
           {
@@ -1180,7 +1176,7 @@ export const createMcpServer = async (
       }
       const accessKeys = await accountResult.value.getAccessKeys();
       return {
-        content: [{ type: 'text', text: JSON.stringify(accessKeys, null, 2) }],
+        content: [{ type: 'text', text: stringify_bigint(accessKeys) }],
       };
     },
   );
@@ -1209,7 +1205,7 @@ export const createMcpServer = async (
                   z.number().describe('The amount of NEAR tokens (in NEAR)'),
                   z.bigint().describe('The amount in yoctoNEAR'),
                 ])
-                .default(1n)
+                .default(NearToken.parse_yocto_near('1').as_near())
                 .describe('The allowance of the function call access key.'),
               methodNames: z.array(z.string()),
             }),
@@ -1386,7 +1382,7 @@ export const createMcpServer = async (
           z.number().describe('The amount of NEAR tokens (in NEAR)'),
           z.bigint().describe('The amount in yoctoNEAR'),
         ])
-        .default(1n)
+        .default(NearToken.parse_yocto_near('1').as_near())
         .describe('The amount of NEAR to send in NEAR. e.g. 1.5'),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
     },
@@ -1585,7 +1581,7 @@ export const createMcpServer = async (
         content: [
           {
             type: 'text',
-            text: `Contract ${args.contractId} methods: ${JSON.stringify(contractMethodsResult.value, null, 2)}`,
+            text: `Contract ${args.contractId} methods: ${stringify_bigint(contractMethodsResult.value)}`,
           },
         ],
       };
@@ -1682,14 +1678,10 @@ export const createMcpServer = async (
           content: [
             {
               type: 'text',
-              text: JSON.stringify(
-                {
-                  ...method,
-                  args: method.params?.args || {},
-                },
-                null,
-                2,
-              ),
+              text: stringify_bigint({
+                ...method,
+                args: method.params?.args || {},
+              }),
             },
           ],
         };
@@ -1741,7 +1733,7 @@ export const createMcpServer = async (
         content: [
           {
             type: 'text',
-            text: JSON.stringify(parsedContractMethods, null, 2),
+            text: stringify_bigint(parsedContractMethods),
           },
         ],
       };
@@ -1801,7 +1793,7 @@ export const createMcpServer = async (
         content: [
           {
             type: 'text',
-            text: `View call result: ${JSON.stringify(viewCallResult.value)}`,
+            text: `View call result: ${stringify_bigint(viewCallResult.value)}`,
           },
         ],
       };
@@ -1832,7 +1824,7 @@ export const createMcpServer = async (
           z.number().describe('The amount of NEAR tokens (in NEAR)'),
           z.bigint().describe('The amount in yoctoNEAR'),
         ])
-        .default(1n)
+        .default(NearToken.parse_yocto_near('1').as_near())
         .describe(
           'The amount to attach to the function call (default to 1 yoctoNEAR). Can be specified as a number (in NEAR) or as a bigint (in yoctoNEAR).',
         ),

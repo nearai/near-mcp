@@ -5,6 +5,7 @@ import { Command } from '@oclif/core';
 import { homedir } from 'os';
 import path from 'path';
 import { createMcpServer } from 'src/services';
+import { stringify_bigint } from 'src/utils';
 
 export default class Tools extends Command {
   static description = 'List all available tools in the NEAR MCP server';
@@ -32,7 +33,7 @@ export default class Tools extends Command {
         description: tool.description,
         args: tool.inputSchema.properties,
       }));
-      console.log(JSON.stringify(tools, null, 2));
+      console.log(stringify_bigint(tools));
     } catch (error) {
       this.error(
         error instanceof Error ? error.message : 'Unknown error occurred',
