@@ -1382,7 +1382,11 @@ export const createMcpServer = async (
       signerAccountId: z.string(),
       receiverAccountId: z.string(),
       amount: z
-        .number()
+        .union([
+          z.number().describe('The amount of NEAR tokens (in NEAR)'),
+          z.bigint().describe('The amount in yoctoNEAR'),
+        ])
+        .default(1n)
         .describe('The amount of NEAR to send in NEAR. e.g. 1.5'),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
     },
@@ -1396,9 +1400,13 @@ export const createMcpServer = async (
         await (async () => {
           try {
             const account = await connection.account(args.signerAccountId);
+            const amount =
+              typeof args.amount === 'number'
+                ? NearToken.parse_near(args.amount.toString()).as_yocto_near()
+                : args.amount;
             const sendMoneyResult = await account.sendMoney(
               args.receiverAccountId,
-              NearToken.parse_near(args.amount).as_yocto_near(),
+              amount,
             );
             return {
               ok: true,
