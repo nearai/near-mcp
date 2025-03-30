@@ -2,6 +2,8 @@
   <img src="assets/near-mcp.svg" alt="NEAR MCP Logo" width="200" />
 </div>
 
+[![npm version](https://badge.fury.io/js/@nearai%2Fnear-mcp.svg)](https://badge.fury.io/js/@nearai%2Fnear-mcp)
+
 # NEAR MCP
 
 This project is a Model Context Protocol ([MCP](https://github.com/modelcontextprotocol)) compatible server for interacting with the [NEAR blockchain](https://near.org/). This tool provides a way for LLMs and AI agents to securely access and interact with NEAR accounts and blockchain functionality.
