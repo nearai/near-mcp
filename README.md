@@ -2,6 +2,9 @@
   <img src="assets/near-mcp.svg" alt="NEAR MCP Logo" width="200" />
 </div>
 
+[![npm version](https://badge.fury.io/js/@nearai%2Fnear-mcp.svg)](https://badge.fury.io/js/@nearai%2Fnear-mcp)
+[![Telegram](https://img.shields.io/badge/Dev_Support-2CA5E0?style=flat&logo=telegram&logoColor=white)](https://t.me/nearaialpha)
+
 # NEAR MCP
 
 This project is a Model Context Protocol ([MCP](https://github.com/modelcontextprotocol)) compatible server for interacting with the [NEAR blockchain](https://near.org/). This tool provides a way for LLMs and AI agents to securely access and interact with NEAR accounts and blockchain functionality.
@@ -78,6 +81,7 @@ This tool is designed to be used with AI models that support the [Model Context 
 2. Check account balances and status
 3. Sign and send transactions
 4. Create new accounts and manage access keys
+5. Inspect and execution smart contracts
 
 ## Security Considerations
 
