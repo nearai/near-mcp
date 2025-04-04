@@ -1,11 +1,11 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { UnencryptedFileSystemKeyStore } from '@near-js/keystores-node';
 import { Command } from '@oclif/core';
 import { homedir } from 'os';
 import path from 'path';
-import { createMcpServer } from 'src/services';
-import { stringify_bigint } from 'src/utils';
+
+import { createMcpServer } from '../../services';
+import { stringify_bigint } from '../../utils';
 
 export default class Tools extends Command {
   static description = 'List all available tools in the NEAR MCP server';
@@ -14,10 +14,8 @@ export default class Tools extends Command {
 
   public async run(): Promise<void> {
     const keyDir = path.join(homedir(), '.near-keystore');
-    const keystore = new UnencryptedFileSystemKeyStore(keyDir);
-
     try {
-      const mcp = await createMcpServer(keystore);
+      const mcp = await createMcpServer(keyDir);
       const client = new Client({
         name: 'near-mcp-client',
         version: '1.0.0',
