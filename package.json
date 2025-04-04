@@ -1,6 +1,6 @@
 {
   "name": "@nearai/near-mcp",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "description": "MCP server for interacting with Near Blockchain",
   "homepage": "https://github.com/near-ai/near-mcp",
   "repository": {
@@ -77,6 +77,7 @@
     "buffer": "^6.0.3",
     "near-abi": "^0.2.0",
     "near-api-js": "^5.0.1",
+    "tsx": "^4.19.3",
     "zod": "^3.24.1",
     "zod-to-json-schema": "^3.24.4",
     "zstddec": "^0.1.0"
