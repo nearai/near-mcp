@@ -1,2 +1,19 @@
-#!/usr/bin/env sh
-npx -y tsx $(dirname $0)/run.js "$@"
+#!/usr/bin/env node
+
+import { spawn } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const tsxPath = resolve(__dirname, '../node_modules/.bin/tsx');
+const code = "import { execute } from '@oclif/core';await execute({development: true, dir: import.meta.url})";
+const args = process.argv.slice(2);
+const child = spawn(tsxPath, ['-', ...args], {
+  stdio: ['pipe', 'inherit', 'inherit'],
+});
+child.stdin.write(code);
+child.stdin.end();
+child.on('exit', (code) => {
+  process.exit(code || 0);
+});
