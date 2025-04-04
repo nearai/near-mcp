@@ -37,6 +37,13 @@ Thank you for your interest in contributing to NEAR MCP! This document provides 
 
 1. Make your changes in your feature branch
 2. To test you changes locally with the `claude` cli, run:
+   If you don't have the `claude` cli installed, you can install it with:
+   ```bash
+   npm install -g @anthropic-ai/claude-cli
+   or
+   bun add -g @anthropic-ai/claude-cli
+   ```
+   Then add the `near-mcp` tool to the `claude` cli:
    ```bash
    claude mcp add near-mcp ./bin/run run
    ```
