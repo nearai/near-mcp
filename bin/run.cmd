@@ -1,3 +1,2 @@
 @echo off
-
-node "%~dp0\run" %*
+npx -y tsx "%~dp0run.js" %*

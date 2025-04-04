@@ -1,5 +1,2 @@
-#!/usr/bin/env npx -y tsx
-
-import { execute } from '@oclif/core'
-
-await execute({dir: import.meta.url})
+#!/usr/bin/env sh
+npx -y tsx $(dirname $0)/run.js "$@"

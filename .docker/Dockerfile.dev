@@ -24,7 +24,18 @@ RUN apt-get update && \
     git curl wget jq unzip \
     build-essential ca-certificates default-jre \
     libudev-dev pkg-config libssl-dev && \
-    apt-get clean && \
+    apt install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    dbus \
+    dbus-x11 \
+    gnome-keyring \
+    libsecret-1-0 \
+    libsecret-tools \
+    libssl3 \
+    libxcb1 \
+    && apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install node
@@ -43,6 +54,22 @@ RUN (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y
     && sudo apt update \
     && sudo apt install gh -y \
     && rm -rf /var/lib/apt/lists/*
+
+RUN echo '#!/bin/bash\n\
+# Start DBus session daemon if not running\n\
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then\n\
+eval $(dbus-launch --sh-syntax)\n\
+export DBUS_SESSION_BUS_ADDRESS\n\
+fi\n\
+\n\
+# Initialize keyring if needed\n\
+if [ -z "$GNOME_KEYRING_CONTROL" ]; then\n\
+eval $(gnome-keyring-daemon --start)\n\
+export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK\n\
+fi\n\
+\n\
+' > /usr/local/bin/entrypoint.sh && \
+chmod +x /usr/local/bin/entrypoint.sh
 
 # Change to non-privileged user
 USER $USER

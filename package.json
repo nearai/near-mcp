@@ -1,6 +1,6 @@
 {
   "name": "@nearai/near-mcp",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "MCP server for interacting with Near Blockchain",
   "homepage": "https://github.com/near-ai/near-mcp",
   "repository": {
@@ -14,7 +14,7 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
     "build": "rm -rf dist/* && tsc -b",
-    "cli": "bun run ./bin/run"
+    "cli": "bin/run"
   },
   "keywords": [],
   "author": "",
