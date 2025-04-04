@@ -219,9 +219,8 @@ const getContractABI = async (
   }
 };
 
-export const createMcpServer = async (
-  keystore: UnencryptedFileSystemKeyStore,
-) => {
+export const createMcpServer = async (keyDir: string) => {
+  const keystore = new UnencryptedFileSystemKeyStore(keyDir);
   const mcp = new McpServer(
     {
       name: MCP_SERVER_NAME,
@@ -1902,8 +1901,7 @@ export const createMcpServer = async (
 export async function runMcpServer(keystorePath?: string) {
   const actualKeystorePath =
     keystorePath || path.join(homedir(), '.near-keystore');
-  const keystore = new UnencryptedFileSystemKeyStore(actualKeystorePath);
-  const mcp = await createMcpServer(keystore);
+  const mcp = await createMcpServer(actualKeystorePath);
   const transport = new StdioServerTransport();
   await mcp.connect(transport);
   await mcp.server.notification({
