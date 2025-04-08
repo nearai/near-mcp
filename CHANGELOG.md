@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.24
+
+### Patch Changes
+
+- Moar cli
+
 ## 0.0.23
 
 ### Patch Changes
