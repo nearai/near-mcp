@@ -1,6 +1,6 @@
 {
   "name": "@nearai/near-mcp",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "description": "MCP server for interacting with Near Blockchain",
   "homepage": "https://github.com/near-ai/near-mcp",
   "repository": {
@@ -31,6 +31,9 @@
   "files": [
     "bin",
     "dist"
+  ],
+  "bundleDependencies": [
+    "tsx"
   ],
   "oclif": {
     "bin": "near-mcp",

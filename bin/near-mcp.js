@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-':' //; exec /usr/bin/env node --no-warnings --import tsx "$0" "$@"
+":" //; command -v bun >/dev/null && exec /usr/bin/env bun "$0" "$@" || exec /usr/bin/env node --no-warnings --import tsx "$0" "$@"
 
 import { execute } from '@oclif/core';
 import { dirname } from 'path';
