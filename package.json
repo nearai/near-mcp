@@ -13,7 +13,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
-    "build": "rm -rf dist/* && tsc -b",
+    "build": "rm -rf dist/* && tsc --declaration --emitDeclarationOnly --outDir dist && bun build $(find src -name '*.ts') --outdir ./dist --format esm --target node",
     "cli": "bin/near-mcp.js"
   },
   "keywords": [],
