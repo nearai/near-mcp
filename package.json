@@ -32,9 +32,7 @@
     "bin",
     "dist"
   ],
-  "bundleDependencies": [
-    "tsx"
-  ],
+  "bundleDependencies": [],
   "oclif": {
     "bin": "near-mcp",
     "dirname": "near-mcp",
