@@ -5,7 +5,7 @@
   "homepage": "https://github.com/near-ai/near-mcp",
   "repository": {
     "type": "git",
-    "url": "https://github.com/near-ai/near-mcp.git"
+    "url": "git+https://github.com/near-ai/near-mcp.git"
   },
   "scripts": {
     "format": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
