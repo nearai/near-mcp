@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.28
+
+### Patch Changes
+
+- logging fields
+
 ## 0.0.27
 
 ### Patch Changes
