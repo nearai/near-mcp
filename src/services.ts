@@ -227,6 +227,9 @@ export const createMcpServer = async (keyDir: string) => {
       version: '1.0.0',
     },
     {
+      capabilities: {
+        logging: {},
+      },
       instructions: noLeadingWhitespace`
       # NEAR MCP Server
 
