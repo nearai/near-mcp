@@ -1909,10 +1909,14 @@ export async function runMcpServer(keystorePath?: string) {
   await mcp.connect(transport);
   await mcp.server.sendLoggingMessage({
     level: 'info',
-    message: 'NEAR MCP server started ...',
+    data: {
+      message: 'NEAR MCP server started ...',
+    },
   });
   await mcp.server.sendLoggingMessage({
     level: 'info',
-    message: `Using NEAR keystore at: ${actualKeystorePath}`,
+    data: {
+      message: `Using NEAR keystore at: ${actualKeystorePath}`,
+    },
   });
 }
