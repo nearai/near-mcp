@@ -1,6 +1,6 @@
 {
   "name": "@nearai/near-mcp",
-  "version": "0.0.28",
+  "version": "0.0.29",
   "description": "MCP server for interacting with Near Blockchain",
   "homepage": "https://github.com/near-ai/near-mcp",
   "repository": {
@@ -13,7 +13,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
-    "build": "rm -rf dist/* && tsc --outDir dist",
+    "build": "rm -rf dist/* && tsc --outDir dist && shx chmod +x dist/**/*.js bin/*.js",
     "cli": "bin/near-mcp.js"
   },
   "keywords": [],
@@ -60,6 +60,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-simple-import-sort": "^10.0.0",
     "prettier": "^3.4.2",
+    "shx": "^0.4.0",
     "typescript": "^5.7.2"
   },
   "dependencies": {
