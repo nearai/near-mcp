@@ -1904,16 +1904,12 @@ export async function runMcpServer(keystorePath?: string) {
   const mcp = await createMcpServer(actualKeystorePath);
   const transport = new StdioServerTransport();
   await mcp.connect(transport);
-  await mcp.server.notification({
-    method: 'log',
-    params: {
-      message: 'NEAR MCP server started ...',
-    },
+  await mcp.server.sendLoggingMessage({
+    level: 'info',
+    message: 'NEAR MCP server started ...',
   });
-  await mcp.server.notification({
-    method: 'log',
-    params: {
-      message: `Using NEAR keystore at: ${actualKeystorePath}`,
-    },
+  await mcp.server.sendLoggingMessage({
+    level: 'info',
+    message: `Using NEAR keystore at: ${actualKeystorePath}`,
   });
 }
