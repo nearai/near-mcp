@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.30
+
+### Patch Changes
+
+- Change build
+
 ## 0.0.29
 
 ### Patch Changes
