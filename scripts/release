@@ -8,7 +8,7 @@ bun run build
 echo "# Available Tools" > TOOLS.md
 echo "" >> TOOLS.md
 echo '```json' >> TOOLS.md
-bun run cli tools >> TOOLS.md
+bun ./dist/near-mcp.js tools >> TOOLS.md
 echo '```' >> TOOLS.md
 bun run lint:fix
 bun run format:fix
