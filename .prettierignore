@@ -35,7 +35,3 @@ coverage
 
 # JSON files
 **/*.json
-
-# Skip files with module/CommonJS conflicts
-bin/run.ts
-bin/

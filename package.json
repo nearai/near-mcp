@@ -1,6 +1,6 @@
 {
   "name": "@nearai/near-mcp",
-  "version": "0.0.29",
+  "version": "0.0.30",
   "description": "MCP server for interacting with Near Blockchain",
   "homepage": "https://github.com/near-ai/near-mcp",
   "repository": {
@@ -13,23 +13,23 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
-    "build": "rm -rf dist/* && tsc --outDir dist && shx chmod +x dist/**/*.js bin/*.js",
-    "cli": "bin/near-mcp.js"
+    "build": "rm -rf dist/* && bun build --sourcemap=external --entrypoints $(find ./src -name '*.ts' | grep -v '*.test.ts') --target node --outdir dist/ && bun run build:declaration",
+    "build:declaration": "tsc --emitDeclarationOnly",
+    "cli": "bun run build && dist/near-mcp.js"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "type": "module",
-  "main": "bin/near-mcp.js",
+  "main": "dist/near-mcp.js",
   "types": "dist/index.d.ts",
   "publishConfig": {
     "access": "public"
   },
   "bin": {
-    "near-mcp": "bin/near-mcp.js"
+    "near-mcp": "dist/near-mcp.js"
   },
   "files": [
-    "bin",
     "dist"
   ],
   "bundleDependencies": [],
