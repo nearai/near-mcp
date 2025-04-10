@@ -26,7 +26,6 @@ export default [
       'build/**',
       'out/**',
       '.near-keystore/**',
-      'bin/**',
     ],
   },
   ...compat.extends(

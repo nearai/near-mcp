@@ -45,7 +45,7 @@ Thank you for your interest in contributing to NEAR MCP! This document provides 
    ```
    Then add the `near-mcp` tool to the `claude` cli:
    ```bash
-   claude mcp add near-mcp ./bin/run run
+   claude mcp add near-mcp bun run cli
    ```
    This adds the `near-mcp` tool to the `claude` cli from your local build.
 3. Run the TypeScript compiler to check for type errors:
