@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.31
+
+### Patch Changes
+
+- fix double call
+
 ## 0.0.30
 
 ### Patch Changes
