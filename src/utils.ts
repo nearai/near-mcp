@@ -1,5 +1,6 @@
 import { KeyType } from '@near-js/crypto';
 import { DEFAULT_FUNCTION_CALL_GAS } from '@near-js/utils';
+import { type OpenAPIV3 } from 'openapi-types';
 import { z } from 'zod';
 
 export const DEFAULT_GAS = DEFAULT_FUNCTION_CALL_GAS * BigInt(10);
@@ -62,25 +63,21 @@ type FungibleTokenContract = {
   symbol: string;
 };
 
-export const getPopularFungibleTokenContracts = async (): Promise<
-  Result<FungibleTokenContract[], Error>
-> => {
+export const searchFungibleTokenContracts = async (
+  searchTerm: string,
+  maxNumberOfResults: number,
+): Promise<Result<FungibleTokenContract[], Error>> => {
   try {
-    const url =
-      'https://nearblocks.io/_next/data/nearblocks/en/tokens.json?page=1';
+    const url = `https://api.nearblocks.io/v1/fts?page=1&per_page=${maxNumberOfResults}&search=${searchTerm}`;
     const response = await fetch(url);
     const data = (await response.json()) as {
-      pageProps?: {
-        data?: {
-          tokens?: {
-            contract: string;
-            name: string;
-            symbol: string;
-          }[];
-        };
-      };
+      tokens?: {
+        contract: string;
+        name: string;
+        symbol: string;
+      }[];
     };
-    const tokens = data.pageProps?.data?.tokens;
+    const tokens = data.tokens;
     if (!tokens) {
       return {
         ok: false,
@@ -103,34 +100,29 @@ export const getPopularFungibleTokenContracts = async (): Promise<
 };
 
 export const getFungibleTokenContractInfo = async (
-  accountId: string,
+  contractId: string,
 ): Promise<Result<object, Error>> => {
   try {
-    const url = `https://nearblocks.io/_next/data/nearblocks/en/token/${accountId}.json`;
+    const url = `https://api.nearblocks.io/v1/fts/${contractId}`;
     const response = await fetch(url);
     const data = (await response.json()) as {
-      pageProps?: {
-        tokenDetails?: {
-          contracts?: {
-            contract: string;
-            name: string;
-            symbol: string;
-            decimals: number;
-            description: string;
-            website: string;
-          }[];
-        };
-      };
+      contracts?: {
+        contract: string;
+        name: string;
+        symbol: string;
+        decimals: number;
+        description: string;
+        website: string;
+      }[];
     };
-    const pageProps = data?.pageProps;
-    const tokenDetails = pageProps?.tokenDetails;
-    if (!tokenDetails?.contracts) {
+    const contracts = data?.contracts;
+    if (!contracts) {
       return {
         ok: false,
         error: new Error('No fungible token contracts found'),
       };
     }
-    const contractInfo = tokenDetails.contracts.map((contract) => ({
+    const contractInfo = contracts.map((contract) => ({
       contract: contract.contract,
       name: contract.name,
       symbol: contract.symbol,
@@ -142,61 +134,6 @@ export const getFungibleTokenContractInfo = async (
       ok: true,
       value: contractInfo,
     };
-  } catch (error) {
-    return { ok: false, error: error as Error };
-  }
-};
-
-export const getPopularFungibleTokenContractInfos = async (): Promise<
-  Result<object[], Error>
-> => {
-  const popularFungibleTokenContracts =
-    await getPopularFungibleTokenContracts();
-  if (!popularFungibleTokenContracts.ok) {
-    return { ok: false, error: popularFungibleTokenContracts.error };
-  }
-  const results = await mapSemaphore(
-    popularFungibleTokenContracts.value.map((token) => token.contract),
-    8,
-    async (contract): Promise<[string, Result<object, Error>]> => {
-      return [contract, await getFungibleTokenContractInfo(contract)];
-    },
-  );
-
-  const filteredErrorResults = results.filter(([_, result]) => !result.ok);
-  if (filteredErrorResults.length > 0) {
-    const errorTokens = filteredErrorResults
-      .map(([contract, _]) => contract)
-      .join(', ');
-    return {
-      ok: false,
-      error: new Error(
-        `Failure to receive fungible token contract info for: ${errorTokens}`,
-      ),
-    };
-  }
-  const values = results
-    .map(([_, result]) => result)
-    .filter((result) => result.ok)
-    .map((result) => result.value);
-  return { ok: true, value: values };
-};
-
-export const searchPopularFungibleTokenContractInfos = async (
-  searchTerm: string,
-): Promise<Result<object[], Error>> => {
-  const popularFungibleTokenContractInfos =
-    await getPopularFungibleTokenContractInfos();
-  if (!popularFungibleTokenContractInfos.ok) {
-    return { ok: false, error: popularFungibleTokenContractInfos.error };
-  }
-
-  try {
-    const searchRegex = new RegExp(searchTerm, 'i');
-    const filteredTokens = popularFungibleTokenContractInfos.value.filter(
-      (token) => searchRegex.test(JSON.stringify(token)),
-    );
-    return { ok: true, value: filteredTokens };
   } catch (error) {
     return { ok: false, error: error as Error };
   }
@@ -250,6 +187,20 @@ export const getParsedContractMethod = async (
       ),
     };
   }
+};
+
+export const getNearBlocksJsonSchema = async (): Promise<
+  Result<OpenAPIV3.Document, Error>
+> => {
+  const url = 'https://api.nearblocks.io/openapi.json';
+  const response = await fetch(url);
+  const nearblocksJsonSchema = (await response.json()) as OpenAPIV3.Document;
+  nearblocksJsonSchema.paths = Object.fromEntries(
+    Object.entries(nearblocksJsonSchema.paths || {}).filter(([path]) =>
+      path.includes('/v1/account/'),
+    ),
+  );
+  return { ok: true, value: nearblocksJsonSchema };
 };
 
 export interface JsonToZodConfig {
