@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.32
+
+### Patch Changes
+
+- Reduce build size and improve contract search
+
 ## 0.0.31
 
 ### Patch Changes

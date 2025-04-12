@@ -31,14 +31,16 @@ import { ZSTDDecoder } from 'zstddec';
 import {
   curvePrefixToKeyType,
   DEFAULT_GAS,
+  getFungibleTokenContractInfo,
   getParsedContractMethod,
   json_to_zod,
   keyTypeToCurvePrefix,
+  mapSemaphore,
   MCP_SERVER_NAME,
   NearToken,
   noLeadingWhitespace,
   type Result,
-  searchPopularFungibleTokenContractInfos,
+  searchFungibleTokenContracts,
   stringify_bigint,
 } from './utils';
 
@@ -576,31 +578,81 @@ export const createMcpServer = async (keyDir: string) => {
   );
 
   mcp.tool(
-    'system_search_popular_fungible_token_contracts',
+    'system_search_fungible_token_contracts_info',
     noLeadingWhitespace`
-    Search for popular fungible token contract information on the NEAR blockchain, with a grep-like search.
-    Use this tool to search for popular fungible token contract information. This tool works by 'grepping'
-    through a list of contract information JSON objects. Useful for getting contract information about popular
-    tokens like USDC native, USDT, WNEAR, and more.`,
+    Search for fungible token contract information on the NEAR blockchain, with a grep-like search.
+    Use this tool to search for fungible token contract information. This tool works by 'grepping'
+    through a list of contract information JSON objects. Be careful with this tool, it can return a lot of results.
+    If used too much, it could overwhelm the API and cause issues.`,
     {
-      searchPattern: z
+      searchTerm: z
         .string()
         .describe(
-          'The grep search pattern to use for filtering popular fungible token contract information.',
+          'The search term to use for finding fungible token contract information.',
+        ),
+      maxNumberOfResults: z
+        .number()
+        .default(3)
+        .describe(
+          'The maximum number of results to return. This is a limit to the number of results returned by the API. Keep this number low to avoid overwhelming the API.',
         ),
     },
     async (args, __) => {
-      const tokenContracts = await searchPopularFungibleTokenContractInfos(
-        args.searchPattern,
+      const tokenContractsSearchResult = await searchFungibleTokenContracts(
+        args.searchTerm,
+        args.maxNumberOfResults,
       );
-      if (!tokenContracts.ok) {
+      if (!tokenContractsSearchResult.ok) {
         return {
-          content: [{ type: 'text', text: `Error: ${tokenContracts.error}` }],
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${tokenContractsSearchResult.error}`,
+            },
+          ],
         };
       }
+      const tokenContracts = tokenContractsSearchResult.value;
+
+      // get the contract info for each contract
+      const contractInfoResults = await mapSemaphore(
+        tokenContracts.map((token) => token.contract),
+        4,
+        async (contract): Promise<[string, Result<object, Error>]> => {
+          return [contract, await getFungibleTokenContractInfo(contract)];
+        },
+      );
+      const filteredErrorResults = contractInfoResults.filter(
+        ([_, result]) => !result.ok,
+      );
+      if (filteredErrorResults.length > 0) {
+        const errorTokens = filteredErrorResults
+          .map(([contract, _]) => contract)
+          .join(', ');
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${errorTokens}`,
+            },
+          ],
+        };
+      }
+      const contractInfos = contractInfoResults
+        .filter(([_, result]) => result.ok)
+        .map(([_, result]) => {
+          if (result.ok) {
+            return result.value;
+          }
+          throw new Error('Unexpected error in filtered results');
+        });
+
       return {
         content: [
-          { type: 'text', text: stringify_bigint(tokenContracts.value) },
+          {
+            type: 'text',
+            text: stringify_bigint(contractInfos),
+          },
         ],
       };
     },
@@ -1754,6 +1806,27 @@ export const createMcpServer = async (keyDir: string) => {
       args: z
         .record(z.string(), z.any())
         .describe('The arguments to pass to the method.'),
+      jsonQuery: z
+        .string()
+        .optional()
+        .describe('The json query to post process.'),
+      outputFile: z
+        .string()
+        .optional()
+        .describe('The file to write the output to.'),
+      chainingCall: z
+        .object({
+          nextMCPServer: z
+            .string()
+            .optional()
+            .describe('The next MCP server to call.'),
+          args: z
+            .any()
+            .optional()
+            .describe('The arguments to pass to the next MCP server.'),
+        })
+        .optional()
+        .describe('The contract to call after the current contract.'),
     },
     async (args, _) => {
       const connection = await connect({
