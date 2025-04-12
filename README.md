@@ -9,9 +9,19 @@
 
 This project is a Model Context Protocol ([MCP](https://github.com/modelcontextprotocol)) compatible server for interacting with the [NEAR blockchain](https://near.org/). This tool provides a way for LLMs and AI agents to securely access and interact with NEAR accounts and blockchain functionality.
 
+## Quickstart
+
+Here is how to get started with the near-mcp server quickly with the `claude` code cli
+
+```
+npm install -g @anthropic-ai/claude-code
+claude mcp add near-mcp npx @nearai/near-mcp@latest run
+claude
+```
+
 ## Installing
 
-The main way `near-mcp` is mean to be used is with an MCP compatible service.
+`near-mcp` is meant to be used is with an MCP compatible client. Learn more in the [MCP docs](https://modelcontextprotocol.io/introduction)
 
 Adding to the [`claude` code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) cli:
 
@@ -19,7 +29,7 @@ Adding to the [`claude` code](https://docs.anthropic.com/en/docs/agents-and-tool
 claude mcp add near-mcp npx @nearai/near-mcp@latest run
 ```
 
-Adding via JSON config:
+Adding to claude desktop via JSON config:
 
 ```json
 {
