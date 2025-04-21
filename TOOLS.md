@@ -91,12 +91,17 @@
     }
   },
   {
-    "name": "system_search_popular_fungible_token_contracts",
-    "description": "\nSearch for popular fungible token contract information on the NEAR blockchain, with a grep-like search.\nUse this tool to search for popular fungible token contract information. This tool works by 'grepping'\nthrough a list of contract information JSON objects. Useful for getting contract information about popular\ntokens like USDC native, USDT, WNEAR, and more.",
+    "name": "system_search_fungible_token_contracts_info",
+    "description": "\nSearch for fungible token contract information on the NEAR blockchain, with a grep-like search.\nUse this tool to search for fungible token contract information. This tool works by 'grepping'\nthrough a list of contract information JSON objects. Be careful with this tool, it can return a lot of results.\nIf used too much, it could overwhelm the API and cause issues.",
     "args": {
-      "searchPattern": {
+      "searchTerm": {
         "type": "string",
-        "description": "The grep search pattern to use for filtering popular fungible token contract information."
+        "description": "The search term to use for finding fungible token contract information."
+      },
+      "maxNumberOfResults": {
+        "type": "number",
+        "default": 3,
+        "description": "The maximum number of results to return. This is a limit to the number of results returned by the API. Keep this number low to avoid overwhelming the API."
       }
     }
   },
