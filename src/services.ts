@@ -1806,27 +1806,6 @@ export const createMcpServer = async (keyDir: string) => {
       args: z
         .record(z.string(), z.any())
         .describe('The arguments to pass to the method.'),
-      jsonQuery: z
-        .string()
-        .optional()
-        .describe('The json query to post process.'),
-      outputFile: z
-        .string()
-        .optional()
-        .describe('The file to write the output to.'),
-      chainingCall: z
-        .object({
-          nextMCPServer: z
-            .string()
-            .optional()
-            .describe('The next MCP server to call.'),
-          args: z
-            .any()
-            .optional()
-            .describe('The arguments to pass to the next MCP server.'),
-        })
-        .optional()
-        .describe('The contract to call after the current contract.'),
     },
     async (args, _) => {
       const connection = await connect({
