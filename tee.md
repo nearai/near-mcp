@@ -1,6 +1,6 @@
 # Deploy on Phala Cloud
 
-## Step1: Remove `build` from docker compose file since it doesn't support build remotely
+## Step1: Remove `build` from docker compose file since it doesn't support build from source
 
 ```
 build:
@@ -26,7 +26,7 @@ You can use the docker-compose file on Phala Cloud to deploy. Head to [Phala Clo
 
 - **NEAR_KEYSTOREDATA=${NEAR_KEYSTOREDATA}**
 
-    You need to use base64 encoding the credential JSON file then pass the value to `NEAR_KEYSTOREDATA`. Uder folder `~/near-credentials`, execute:
+    You need to use base64 encoding the credential JSON file then pass the value to `NEAR_KEYSTOREDATA`. Under folder `~/near-credentials`, execute:
 
     ```
     ➜  .near-credentials base64 -i testnet/phala.testnet/ed25519_FrWgBmDnbEERntvSVGizpUxk64LXNbaF3U77Du6VQDFR.json
