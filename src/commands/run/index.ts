@@ -10,6 +10,8 @@ export default class Run extends Command {
   static examples = [
     '<%= config.bin %> run',
     '<%= config.bin %> run --key-dir ~/custom-near-keystore',
+    '<%= config.bin %> run --remote',
+    '<%= config.bin %> run --remote --port 4000',
   ];
 
   static flags = {
@@ -17,6 +19,15 @@ export default class Run extends Command {
       description: 'Directory for the NEAR keystore',
       default: path.join(homedir(), '.near-keystore'),
       helpValue: '<path>',
+    }),
+    remote: Flags.boolean({
+      description: 'Start the server with SSE transport instead of stdio',
+      default: false,
+    }),
+    port: Flags.integer({
+      description: 'Port to use for the remote server (when --remote is used)',
+      default: 3001,
+      helpValue: '<port>',
     }),
   };
 
@@ -35,7 +46,7 @@ export default class Run extends Command {
       return path.join(homedir(), '.near-keystore');
     })();
     try {
-      await runMcpServer(keyDir);
+      await runMcpServer(keyDir, flags.remote, flags.port);
     } catch (error) {
       this.error(
         error instanceof Error ? error.message : 'Unknown error occurred',

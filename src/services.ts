@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   createTopLevelAccount,
@@ -19,6 +20,7 @@ import {
   type SerializedReturnValue,
 } from '@near-js/types';
 import base58 from 'bs58';
+import express from 'express';
 import { writeFile } from 'fs/promises';
 import { type AbiRoot } from 'near-abi';
 import { type Account, connect, KeyPair, type Near } from 'near-api-js';
@@ -1953,22 +1955,108 @@ export const createMcpServer = async (keyDir: string) => {
   return mcp;
 };
 
-export async function runMcpServer(keystorePath?: string) {
+export async function runMcpServer(keystorePath?: string, remote = false, port = 3001) {
   const actualKeystorePath =
     keystorePath || path.join(homedir(), '.near-keystore');
   const mcp = await createMcpServer(actualKeystorePath);
-  const transport = new StdioServerTransport();
-  await mcp.connect(transport);
-  await mcp.server.sendLoggingMessage({
-    level: 'info',
-    data: {
-      message: 'NEAR MCP server started ...',
-    },
-  });
-  await mcp.server.sendLoggingMessage({
-    level: 'info',
-    data: {
-      message: `Using NEAR keystore at: ${actualKeystorePath}`,
-    },
-  });
+  
+  if (remote) {
+    // Use HTTP transport for remote connections
+    console.log(`Starting NEAR MCP server on port ${port}...`);
+    
+    const app = express();
+    app.use(express.json());
+    
+    // Store all active SSE transports
+    const transports = new Map<string, SSEServerTransport>();
+    
+    // SSE endpoint for clients
+    app.get('/sse', async (req, res) => {
+      try {
+        // Create a new transport to handle the client connection
+        const transport = new SSEServerTransport('/messages', res);
+        const sessionId = transport.sessionId;
+        
+        transports.set(sessionId, transport);
+        console.log(`SSE client connected: ${sessionId}`);
+        
+        // Set up cleanup when the connection closes
+        req.on('close', () => {
+          console.log(`SSE client disconnected: ${sessionId}`);
+          transports.delete(sessionId);
+        });
+        
+        // Connect the transport to MCP server
+        await mcp.connect(transport);
+
+        await mcp.server.sendLoggingMessage({
+          level: 'info',
+          data: {
+            message: 'NEAR MCP server started with SSE transport...',
+          },
+        });
+        
+        await mcp.server.sendLoggingMessage({
+          level: 'info',
+          data: {
+            message: `Using NEAR keystore at: ${actualKeystorePath}`,
+          },
+        });
+      } catch (error) {
+        console.error("Error handling SSE connection:", error);
+        res.status(500).send("Error establishing SSE connection");
+      }
+    });
+    
+    // Handle POST messages for SSE clients
+    app.post('/messages', async (req, res) => {
+      try {
+        const sessionId = req.query.sessionId as string;
+        if (!sessionId) {
+          console.error('No session ID provided in request URL');
+          res.status(400).send('Missing sessionId parameter');
+          return;
+        }
+
+        const transport = transports.get(sessionId);
+        if (!transport) {
+          console.error(`No active SSE connection found for session: ${sessionId}`);
+          return res.status(400).json({ error: 'No active SSE connection found for this session' });
+        }
+        
+        await transport.handlePostMessage(req, res, req.body);
+      } catch (error) {
+        console.error("Error handling message:", error);
+        res.status(500).json({ 
+          error: "Failed to process message",
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+    });
+    
+    // Start the server
+    app.listen(port, () => {
+      console.log(`NEAR MCP server listening on port ${port}`);
+      console.log(`SSE endpoint: http://localhost:${port}/sse`);
+      console.log(`Message endpoint: http://localhost:${port}/messages`);
+    });
+  } else {
+    // Use stdio transport (default)
+    const transport = new StdioServerTransport();
+    await mcp.connect(transport);
+    
+    await mcp.server.sendLoggingMessage({
+      level: 'info',
+      data: {
+        message: 'NEAR MCP server started with stdio transport...',
+      },
+    });
+    
+    await mcp.server.sendLoggingMessage({
+      level: 'info',
+      data: {
+        message: `Using NEAR keystore at: ${actualKeystorePath}`,
+      },
+    });
+  }
 }
