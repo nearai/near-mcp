@@ -15,7 +15,7 @@ services:
       - "3001:3001"
     # Override the entrypoint from the Dockerfile
     entrypoint: []
-    command: ["sh", "-c", "mkdir -p /root/.near-keystore/$${NEAR_NETWORK} && if [ ! -z \"$${NEAR_KEYSTOREDATA}\" ] && [ ! -z \"$${NEAR_NETWORK}\" ] && [ ! -z \"$${NEAR_ACCOUNT_ID}\" ]; then echo \"$${NEAR_KEYSTOREDATA}\" | base64 -d > /root/.near-keystore/$${NEAR_NETWORK}/$${NEAR_ACCOUNT_ID}.json && echo \"Keystore data written to /root/.near-keystore/$${NEAR_NETWORK}/$${NEAR_ACCOUNT_ID}.json\"; fi && cd /app && exec node dist/near-mcp.js run --remote --port 3001"]
+    command: ["bash", "/app/scripts/run"]
     environment:
       - NODE_ENV=production
       - NEAR_KEYSTOREDATA=${NEAR_KEYSTOREDATA}
