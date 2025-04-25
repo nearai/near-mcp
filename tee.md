@@ -26,20 +26,20 @@ You can use the docker-compose file on Phala Cloud to deploy. Head to [Phala Clo
 
 - **NEAR_KEYSTOREDATA=${NEAR_KEYSTOREDATA}**
 
-    You need to use base64 encoding the credential JSON file then pass the value to `NEAR_KEYSTOREDATA`. Under folder `~/near-credentials`, execute:
+  You need to use base64 encoding the credential JSON file then pass the value to `NEAR_KEYSTOREDATA`. Under folder `~/near-credentials`, execute:
 
-    ```
-    ➜  .near-credentials base64 -i testnet/phala.testnet/ed25519_FrWgBmDnbEERntvSVGizpUxk64LXNbaF3U77Du6VQDFR.json
-    eyJwdWJsaWNfa2V5IjoiZWQyNTUxOTpGcldnQm1EbmJFRVJudHZTVkdpenBVeGs2NExYTmJhRjNVNzdEdTZWUURGUiIsInByaXZhdGVfa2V5IjoiZWQyNTUxOTo0NTdQdzJCeUZmNnVUOHI2SGkzWlFzOVJQQ3NNN0FXb3I0a2dlZW50UE1HVXRhb2ZobUtVanF4M1ZwQlAybnREdVVmR0UydjFCcmFka2ptblBjYm1weUdGIn0=
-    ```
+  ```
+  ➜  .near-credentials base64 -i testnet/phala.testnet/ed25519_FrWgBmDnbEERntvSVGizpUxk64LXNbaF3U77Du6VQDFR.json
+  eyJwdWJsaWNfa2V5IjoiZWQyNTUxOTpGcldnQm1EbmJFRVJudHZTVkdpenBVeGs2NExYTmJhRjNVNzdEdTZWUURGUiIsInByaXZhdGVfa2V5IjoiZWQyNTUxOTo0NTdQdzJCeUZmNnVUOHI2SGkzWlFzOVJQQ3NNN0FXb3I0a2dlZW50UE1HVXRhb2ZobUtVanF4M1ZwQlAybnREdVVmR0UydjFCcmFka2ptblBjYm1weUdGIn0=
+  ```
 
 - NEAR_NETWORK=${NEAR_NETWORK:-mainnet}
 
-    Set it to "testnet"
+  Set it to "testnet"
 
 - NEAR_ACCOUNT_ID=${NEAR_ACCOUNT_ID}
 
-    Set it to `phala.testnet`.
+  Set it to `phala.testnet`.
 
 After finished deployment, you will see a public endpoint at **Network** tab on the dashboard, which you can use to access the MCP server.
 
