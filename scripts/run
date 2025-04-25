@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+
+# Create NEAR keystore directory for the specified network
+mkdir -p /root/.near-keystore/${NEAR_NETWORK}
+
+# If required environment variables are present, set up the keystore
+if [ ! -z "${NEAR_KEYSTOREDATA}" ] && [ ! -z "${NEAR_NETWORK}" ] && [ ! -z "${NEAR_ACCOUNT_ID}" ]; then
+  echo "${NEAR_KEYSTOREDATA}" | base64 -d > /root/.near-keystore/${NEAR_NETWORK}/${NEAR_ACCOUNT_ID}.json
+  echo "Keystore data written to /root/.near-keystore/${NEAR_NETWORK}/${NEAR_ACCOUNT_ID}.json"
+fi
+
+# Start the application
+cd /app && exec bun run cli run --remote --port 3001 

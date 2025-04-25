@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  near-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: near-mcp:latest
+    container_name: near-mcp-server
+    restart: unless-stopped
+    volumes:
+      - ~/.near-keystore:/root/.near-keystore
+    ports:
+      # Expose the SSE server port
+      - "3001:3001"
+    # Override the entrypoint from the Dockerfile
+    entrypoint: []
+    command: ["bash", "/app/scripts/run"]
+    environment:
+      - NODE_ENV=production
+      - NEAR_KEYSTOREDATA=${NEAR_KEYSTOREDATA}
+      - NEAR_NETWORK=${NEAR_NETWORK:-mainnet}
+      - NEAR_ACCOUNT_ID=${NEAR_ACCOUNT_ID}
+      - NEAR_KEYSTORE=/root/.near-keystore
+

@@ -19,6 +19,8 @@ claude mcp add near-mcp npx @nearai/near-mcp@latest run
 claude
 ```
 
+Or deploy the MCP server remotely on Phala Cloud, check the instructions [here](./tee.md)
+
 ## Installing
 
 `near-mcp` is meant to be used is with an MCP compatible client. Learn more in the [MCP docs](https://modelcontextprotocol.io/introduction)
