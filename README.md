@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/mseep-audited.png)](https://mseep.ai/app/nearai-near-mcp)
+
 <div align="center">
   <img src="assets/near-mcp.svg" alt="NEAR MCP Logo" width="200" />
 </div>
