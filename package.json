@@ -13,7 +13,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -r dist/*",
+    "clean": "rm -rf dist/*",
     "build": "bun run clean && bun build --sourcemap=external --entrypoints $(find ./src -name '*.ts' | grep -v '*.test.ts') --minify --splitting --target node --outdir dist/ && bun run build:declaration",
     "build:declaration": "tsc --emitDeclarationOnly",
     "cli": "bun run build && dist/near-mcp.js"
