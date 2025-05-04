@@ -19,7 +19,6 @@ import {
   type FinalExecutionOutcome,
   type SerializedReturnValue,
 } from '@near-js/types';
-import Big from 'big.js';
 import base58 from 'bs58';
 import express, { type Request, type Response } from 'express';
 import { writeFile } from 'fs/promises';
@@ -264,21 +263,34 @@ export const refFinanceGetEstimate = async (
   amountIn: string,
 ): Promise<Result<RefFinanceEstimate, Error>> => {
   try {
-    const amount_with_fee = Number(amountIn) * (FEE_DIVISOR - pool.fee);
-    const in_balance = toReadableNumber(
-      tokenIn.metadata.decimals,
-      pool.supplies[tokenIn.id],
+    const amountInBigInt = BigInt(amountIn);
+    const feeDivisorBigInt = BigInt(FEE_DIVISOR);
+    const poolFeeBigInt = BigInt(pool.fee);
+
+    const amount_with_fee = amountInBigInt * (feeDivisorBigInt - poolFeeBigInt);
+
+    // Use the raw supply values which should be strings representing integers
+    const in_balance = BigInt(
+      toReadableNumber(tokenIn.metadata.decimals, pool.supplies[tokenIn.id]),
     );
-    const out_balance = toReadableNumber(
-      tokenOut.metadata.decimals,
-      pool.supplies[tokenOut.id],
+    const out_balance = BigInt(
+      toReadableNumber(tokenOut.metadata.decimals, pool.supplies[tokenOut.id]),
     );
-    const estimate = new Big(
-      (
-        (amount_with_fee * Number(out_balance)) /
-        (FEE_DIVISOR * Number(in_balance) + amount_with_fee)
-      ).toString(),
-    ).toFixed();
+
+    // Perform calculation using BigInt division
+    // Note: BigInt division truncates the result (floor division)
+    const numerator = amount_with_fee * out_balance;
+    const denominator = feeDivisorBigInt * in_balance + amount_with_fee;
+
+    // Avoid division by zero
+    if (denominator === 0n) {
+      return {
+        ok: false,
+        error: new Error('Division by zero in estimate calculation'),
+      };
+    }
+
+    const estimate = (numerator / denominator).toString();
 
     return {
       ok: true,
