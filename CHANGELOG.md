@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.35
+
+### Patch Changes
+
+- rm ref sdk
+
 ## 0.0.34
 
 ### Patch Changes
