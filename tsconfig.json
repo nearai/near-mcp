@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    /* Base Options: */
     "esModuleInterop": true,
     "skipLibCheck": true,
     "target": "ES2022",
@@ -8,13 +7,11 @@
     "resolveJsonModule": true,
     "moduleDetection": "force",
     "isolatedModules": true,
-    /* Strictness */
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "checkJs": true,
-    /* Bundled projects */
     "lib": [
       "esnext",
       "dom"
@@ -26,7 +23,6 @@
     "sourceMap": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    /* Path Aliases */
     "baseUrl": ".",
   },
   "ts-node": {

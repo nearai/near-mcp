@@ -57,42 +57,167 @@ export const curvePrefixToKeyType = (
   }
 };
 
-type FungibleTokenContract = {
-  contract: string;
-  name: string;
-  symbol: string;
+export interface SwapEstimate {
+  result_code: number;
+  result_message: string;
+  result_data: {
+    routes: {
+      pools: {
+        pool_id: string;
+        token_in: string;
+        token_out: string;
+        amount_in: string;
+        amount_out: string;
+        min_amount_out: string;
+      }[];
+      amount_in: string;
+      min_amount_out: string;
+      amount_out: string;
+    }[];
+    contract_in: string;
+    contract_out: string;
+    amount_in: string;
+    amount_out: string;
+  };
+}
+
+export const getSmartRouteRefSwapEstimate = async (
+  amountIn: string,
+  tokenIn: string,
+  tokenOut: string,
+  pathDepth: number,
+  slippagePercent: number,
+): Promise<Result<SwapEstimate, Error>> => {
+  try {
+    const params = new URLSearchParams({
+      amountIn,
+      tokenIn,
+      tokenOut,
+      pathDeep: pathDepth.toString(),
+      slippage: slippagePercent.toString(),
+    });
+
+    const url = `https://smartrouter.ref.finance/findPath?${params.toString()}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch swap estimate: ${response.statusText}`);
+    }
+
+    const data = (await response.json()) as SwapEstimate;
+    return { ok: true, value: data };
+  } catch (error) {
+    return { ok: false, error: error as Error };
+  }
 };
 
-export const searchFungibleTokenContracts = async (
-  searchTerm: string,
+export type RefSwapByOutputAction = {
+  pool_id: number;
+  token_in: string;
+  amount_out: string | null;
+  token_out: string;
+  min_amount_out: string | null;
+};
+
+export const refSwapEstimateToActions = (
+  estimate: SwapEstimate,
+): RefSwapByOutputAction[] => {
+  return estimate.result_data.routes.flatMap((route) =>
+    route.pools.map((pool) => {
+      return {
+        pool_id: Number(pool.pool_id),
+        token_in: pool.token_in,
+        amount_out: route.amount_out,
+        token_out: pool.token_out,
+        min_amount_out: pool.min_amount_out,
+      };
+    }),
+  );
+};
+
+export type FungibleTokenContract = {
+  contract: string;
+  spec: string;
+  name: string;
+  symbol: string;
+  icon: string;
+  reference: string;
+  reference_hash: string;
+  decimals: number;
+};
+
+export const searchFungibleTokens = async (
+  accountIDSearchTerm: string | undefined,
+  symbolSearchTerm: string | undefined,
+  nameSearchTerm: string | undefined,
   maxNumberOfResults: number,
 ): Promise<Result<FungibleTokenContract[], Error>> => {
   try {
-    const url = `https://api.nearblocks.io/v1/fts?page=1&per_page=${maxNumberOfResults}&search=${searchTerm}`;
+    const url = 'https://api.ref.finance/list-token';
     const response = await fetch(url);
-    const data = (await response.json()) as {
-      tokens?: {
-        contract: string;
+    const data = (await response.json()) as Record<
+      string,
+      {
+        spec: string;
         name: string;
         symbol: string;
-      }[];
-    };
-    const tokens = data.tokens;
-    if (!tokens) {
+        icon: string;
+        reference: string;
+        reference_hash: string;
+        decimals: number;
+      }
+    >;
+    if (!Object.keys(data).length) {
       return {
         ok: false,
-        error: new Error(
-          `Problem finding tokens. Got: ${JSON.stringify(data, null, 2)}`,
-        ),
+        error: new Error('No tokens found'),
       };
     }
+
+    // Filter tokens based on search term
+    const filteredTokens = Object.entries(data)
+      .filter(([contractId, tokenInfo]) => {
+        // filter by account ID
+        if (
+          accountIDSearchTerm &&
+          !new RegExp(accountIDSearchTerm, 'i').test(contractId)
+        ) {
+          return false;
+        }
+
+        // filter by symbol
+        if (
+          symbolSearchTerm &&
+          !new RegExp(symbolSearchTerm, 'i').test(tokenInfo.symbol)
+        ) {
+          return false;
+        }
+
+        // filter by name
+        if (
+          nameSearchTerm &&
+          !new RegExp(nameSearchTerm, 'i').test(tokenInfo.name)
+        ) {
+          return false;
+        }
+
+        return true;
+      })
+      .slice(0, maxNumberOfResults)
+      .map(([contractId, tokenInfo]) => ({
+        contract: contractId,
+        ...tokenInfo,
+      }));
+
+    if (filteredTokens.length === 0) {
+      return {
+        ok: false,
+        error: new Error('No matching tokens found'),
+      };
+    }
+
     return {
       ok: true,
-      value: tokens?.map((token) => ({
-        contract: token.contract,
-        name: token.name,
-        symbol: token.symbol,
-      })) as FungibleTokenContract[],
+      value: filteredTokens,
     };
   } catch (error) {
     return { ok: false, error: error as Error };
