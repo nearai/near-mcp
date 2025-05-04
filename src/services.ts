@@ -21,11 +21,11 @@ import {
 } from '@near-js/types';
 import {
   ftGetTokenMetadata,
+  getConfig as refGetConfig,
   getPoolEstimate,
   parsePool,
   type Pool,
   type PoolRPCView,
-  getConfig as refGetConfig,
   type TokenMetadata,
 } from '@ref-finance/ref-sdk';
 import base58 from 'bs58';
