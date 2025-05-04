@@ -4,7 +4,7 @@
 [
   {
     "name": "system_list_local_keypairs",
-    "description": "List all accounts and their keypairs in the local keystore by network.",
+    "description": "List all NEAR accounts and their keypairs in the local keystore by network.",
     "args": {
       "networkId": {
         "type": "string",
@@ -15,7 +15,7 @@
   },
   {
     "name": "system_import_account",
-    "description": "\nImport an account into the local keystore.\nThis will allow the user to use this account in other tools.\nRemember mainnet accounts are created with a .near suffix,\nand testnet accounts are created with a .testnet suffix.",
+    "description": "\nImport an account into the local keystore.\nThis will allow the user to use this account with other tools.\nRemember mainnet accounts are created with a .near suffix,\nand testnet accounts are created with a .testnet suffix.",
     "args": {
       "args": {
         "anyOf": [
@@ -78,7 +78,7 @@
   },
   {
     "name": "account_view_account_summary",
-    "description": "Get summary information about any NEAR account. This calls the public RPC endpoint to get this information.",
+    "description": "\nGet summary information about any NEAR account. This calls a\npublic RPC endpoint to get this information.",
     "args": {
       "accountId": {
         "type": "string"
@@ -91,23 +91,33 @@
     }
   },
   {
-    "name": "system_search_fungible_token_contracts_info",
-    "description": "\nSearch for fungible token contract information on the NEAR blockchain, with a grep-like search.\nUse this tool to search for fungible token contract information. This tool works by 'grepping'\nthrough a list of contract information JSON objects. Be careful with this tool, it can return a lot of results.\nIf used too much, it could overwhelm the API and cause issues.",
+    "name": "search_near_fungible_tokens",
+    "description": "\nSearch for fungible token contract information for the NEAR blockchain, based on search terms.\nThis tool works by 'grepping' through a list of contract information JSON objects. Be careful\nwith this tool, it can return a lot of results. Ensure that your query is specific.",
     "args": {
-      "searchTerm": {
+      "accountIDSearchTerm": {
         "type": "string",
-        "description": "The search term to use for finding fungible token contract information."
+        "description": "The grep-like search term to use for finding fungible token contract information by account ID."
+      },
+      "symbolSearchTerm": {
+        "type": "string",
+        "description": "The grep-like search term to use for finding fungible token contract information by symbol."
+      },
+      "nameSearchTerm": {
+        "type": "string",
+        "description": "The grep-like search term to use for finding fungible token contract information by name."
       },
       "maxNumberOfResults": {
         "type": "number",
-        "default": 3,
+        "minimum": 1,
+        "maximum": 8,
+        "default": 4,
         "description": "The maximum number of results to return. This is a limit to the number of results returned by the API. Keep this number low to avoid overwhelming the API."
       }
     }
   },
   {
     "name": "account_export_account",
-    "description": "Export an account from the local keystore to a file.",
+    "description": "\nExport a NEAR account from the local keystore to a file.",
     "args": {
       "accountId": {
         "type": "string"
@@ -150,7 +160,7 @@
   },
   {
     "name": "account_verify_signature",
-    "description": "\nCryptographically verify a signed piece of data against some NEAR account's public key.",
+    "description": "\nCryptographically verify a signed piece of data against a NEAR account's public key.",
     "args": {
       "accountId": {
         "type": "string",
@@ -258,7 +268,7 @@
   },
   {
     "name": "account_add_access_key",
-    "description": "\nAdd an access key to an account. This will allow the account to\ninteract with the contract.",
+    "description": "\nAdd an access key to an account. This can be used to grant full access to an account,\nor allow the specified account to have specific function call access to a contract.",
     "args": {
       "accountId": {
         "type": "string"
@@ -488,6 +498,233 @@
         "type": ["number", "integer"],
         "default": 1.0000000000000001e-24,
         "description": "The amount to attach to the function call (default to 1 yoctoNEAR). Can be specified as a number (in NEAR) or as a bigint (in yoctoNEAR)."
+      }
+    }
+  },
+  {
+    "name": "ref_finance_get_pools",
+    "description": "\nSearch for liquidity pools on the Ref Finance exchange contract based on two tokens.\nPrioritize pools with higher liquidity and better rates for the user.",
+    "args": {
+      "tokenA": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "string",
+            "description": "The first token contract id"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "The first token symbol"
+          }
+        },
+        "required": ["contractId", "symbol"],
+        "additionalProperties": false
+      },
+      "tokenB": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "string",
+            "description": "The second token contract id"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "The second token symbol"
+          }
+        },
+        "required": ["contractId", "symbol"],
+        "additionalProperties": false
+      },
+      "networkId": {
+        "type": "string",
+        "enum": ["testnet", "mainnet"],
+        "default": "mainnet"
+      }
+    }
+  },
+  {
+    "name": "ref_finance_get_swap_estimate",
+    "description": "\nGet a swap estimate from the Ref Finance exchange contract based on two tokens and a pool id.",
+    "args": {
+      "tokenIn": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "string",
+            "description": "The contract id of the input token to be swapped"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "The symbol of the input token"
+          }
+        },
+        "required": ["contractId", "symbol"],
+        "additionalProperties": false
+      },
+      "tokenOut": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "string",
+            "description": "The contract id of the output token to be swapped"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "The symbol of the output token"
+          }
+        },
+        "required": ["contractId", "symbol"],
+        "additionalProperties": false
+      },
+      "amount": {
+        "type": ["number", "integer"],
+        "description": "The amount of the input tokens to swap"
+      },
+      "estimateType": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "bySmartRoute",
+                "description": "Get an estimate using the ref finance smart router to find the best pool"
+              },
+              "pathDepth": {
+                "type": "number",
+                "default": 3,
+                "description": "The depth of the path to search for the best pool"
+              },
+              "slippagePercent": {
+                "type": "number",
+                "default": 0.001,
+                "description": "The slippage to use for the estimate. Only use 0.001, 0.005, or 0.01"
+              }
+            },
+            "required": ["type"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "byPoolId",
+                "description": "Get an estimate using a specific pool id"
+              },
+              "poolId": {
+                "type": "number",
+                "description": "The pool id (e.g. 1)"
+              }
+            },
+            "required": ["type", "poolId"],
+            "additionalProperties": false
+          }
+        ],
+        "default": {
+          "type": "bySmartRoute"
+        },
+        "description": "The type of estimate to get. Defaults to the ref finance smart router to find the best price over all available pools"
+      },
+      "networkId": {
+        "type": "string",
+        "enum": ["testnet", "mainnet"],
+        "default": "mainnet"
+      }
+    }
+  },
+  {
+    "name": "ref_finance_execute_swap",
+    "description": "\nExecute a swap on Ref Finance based on two tokens and a pool id.\nPrioritize pools with higher liquidity and better rates for the user.",
+    "args": {
+      "accountId": {
+        "type": "string",
+        "description": "The account id of the user doing the swap"
+      },
+      "tokenIn": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "string",
+            "description": "The contract id of the input token to be swapped"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "The symbol of the input token"
+          }
+        },
+        "required": ["contractId", "symbol"],
+        "additionalProperties": false
+      },
+      "tokenOut": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "string",
+            "description": "The contract id of the output token to be swapped"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "The symbol of the output token"
+          }
+        },
+        "required": ["contractId", "symbol"],
+        "additionalProperties": false
+      },
+      "amount": {
+        "type": ["number", "integer"],
+        "description": "The amount of the input tokens to swap"
+      },
+      "swapType": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "bySmartRoute",
+                "description": "Get an estimate using the ref finance smart router to find the best pool"
+              },
+              "pathDepth": {
+                "type": "number",
+                "default": 3,
+                "description": "The depth of the path to search for the best pool"
+              },
+              "slippagePercent": {
+                "type": "number",
+                "default": 0.001,
+                "description": "The slippage to use for the estimate. Only use 0.001, 0.005, or 0.01"
+              }
+            },
+            "required": ["type"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "byPoolId",
+                "description": "Get an estimate using a specific pool id"
+              },
+              "poolId": {
+                "type": "number",
+                "description": "The pool id (e.g. 1)"
+              }
+            },
+            "required": ["type", "poolId"],
+            "additionalProperties": false
+          }
+        ],
+        "default": {
+          "type": "bySmartRoute"
+        },
+        "description": "The type of estimate to get. Defaults to the ref finance smart router to find the best price over all available pools"
+      },
+      "networkId": {
+        "type": "string",
+        "enum": ["testnet", "mainnet"],
+        "default": "mainnet"
       }
     }
   }

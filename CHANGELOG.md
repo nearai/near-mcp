@@ -1,5 +1,11 @@
 # @nearai/near-mcp
 
+## 0.0.34
+
+### Patch Changes
+
+- Ref tools & phala
+
 ## 0.0.33
 
 ### Patch Changes
