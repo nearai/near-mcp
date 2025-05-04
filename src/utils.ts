@@ -41,6 +41,7 @@ export const keyTypeToCurvePrefix = (keyType: KeyType) => {
       return 'secp256k1';
   }
 };
+
 export const curvePrefixToKeyType = (
   curvePrefix: string,
 ): Result<KeyType, Error> => {
@@ -56,6 +57,119 @@ export const curvePrefixToKeyType = (
       };
   }
 };
+
+export function getConfig(env: string) {
+  switch (env) {
+    case 'mainnet':
+      return {
+        networkId: 'mainnet',
+        nodeUrl: 'https://rpc.mainnet.near.org',
+        walletUrl: 'https://wallet.near.org',
+        WRAP_NEAR_CONTRACT_ID: 'wrap.near',
+        REF_FI_CONTRACT_ID: 'v2.ref-finance.near',
+        REF_TOKEN_ID: 'token.v2.ref-finance.near',
+        indexerUrl: 'https://indexer.ref.finance',
+        explorerUrl: 'https://nearblocks.io',
+        REF_DCL_SWAP_CONTRACT_ID: 'dclv2.ref-labs.near',
+      };
+    case 'testnet':
+      return {
+        networkId: 'testnet',
+        nodeUrl: 'https://rpc.testnet.near.org',
+        walletUrl: 'https://wallet.testnet.near.org',
+        WRAP_NEAR_CONTRACT_ID: 'wrap.testnet',
+        REF_FI_CONTRACT_ID: 'ref-finance-101.testnet',
+        REF_TOKEN_ID: 'ref.fakes.testnet',
+        explorerUrl: 'https://testnet.nearblocks.io',
+        REF_DCL_SWAP_CONTRACT_ID: 'dclv2.ref-dev.testnet',
+      };
+    case 'dev':
+      return {
+        networkId: 'testnet',
+        nodeUrl: 'https://rpc.testnet.near.org',
+        walletUrl: 'https://wallet.testnet.near.org',
+        WRAP_NEAR_CONTRACT_ID: 'wrap.testnet',
+        REF_FI_CONTRACT_ID: 'exchange.ref-dev.testnet',
+        REF_TOKEN_ID: 'ref.fakes.testnet',
+        explorerUrl: 'https://testnet.nearblocks.io',
+        REF_DCL_SWAP_CONTRACT_ID: 'refv2-dev.ref-dev.testnet',
+      };
+    default:
+      return {
+        networkId: 'mainnet',
+        nodeUrl: 'https://rpc.mainnet.near.org',
+        walletUrl: 'https://wallet.near.org',
+        REF_FI_CONTRACT_ID: 'v2.ref-finance.near',
+        WRAP_NEAR_CONTRACT_ID: 'wrap.near',
+        REF_TOKEN_ID: 'token.v2.ref-finance.near',
+        indexerUrl: 'https://indexer.ref.finance',
+        explorerUrl: 'https://nearblocks.io',
+        REF_DCL_SWAP_CONTRACT_ID: 'dclv2.ref-labs.near',
+      };
+  }
+}
+
+export interface TokenMetadata {
+  id: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  icon: string;
+}
+
+export declare type PoolKind =
+  | 'SIMPLE_POOL'
+  | 'STABLE_SWAP'
+  | 'RATED_SWAP'
+  | 'DEGEN_SWAP';
+export interface PoolRPCView {
+  id: number;
+  token_account_ids: string[];
+  token_symbols: string[];
+  amounts: string[];
+  total_fee: number;
+  shares_total_supply: string;
+  tvl: number;
+  token0_ref_price: string;
+  share: string;
+  decimalsHandled?: boolean;
+  tokens_meta_data?: TokenMetadata[];
+  pool_kind?: PoolKind;
+}
+
+export interface Pool {
+  id: number;
+  tokenIds: string[];
+  supplies: Record<string, string>;
+  fee: number;
+  total_fee?: number;
+  shareSupply: string;
+  tvl: number;
+  token0_ref_price: string;
+  partialAmountIn?: string;
+  Dex?: string;
+  pool_kind?: PoolKind;
+  rates?: Record<string, string>;
+}
+
+export const parsePool = (pool: PoolRPCView, id?: number): Pool => ({
+  id: Number(typeof id === 'number' ? id : pool.id),
+  tokenIds: pool.token_account_ids,
+  supplies: pool.amounts.reduce(
+    (acc: Record<string, string>, amount: string, i: number) => {
+      if (pool.token_account_ids[i] !== undefined) {
+        acc[pool.token_account_ids[i]] = amount;
+      }
+      return acc;
+    },
+    {},
+  ),
+  fee: pool.total_fee,
+  shareSupply: pool.shares_total_supply,
+  tvl: pool.tvl,
+  token0_ref_price: pool.token0_ref_price,
+  pool_kind: pool.pool_kind,
+});
 
 export interface SwapEstimate {
   result_code: number;

@@ -19,15 +19,7 @@ import {
   type FinalExecutionOutcome,
   type SerializedReturnValue,
 } from '@near-js/types';
-import {
-  ftGetTokenMetadata,
-  getConfig as refGetConfig,
-  getPoolEstimate,
-  parsePool,
-  type Pool,
-  type PoolRPCView,
-  type TokenMetadata,
-} from '@ref-finance/ref-sdk';
+import Big from 'big.js';
 import base58 from 'bs58';
 import express, { type Request, type Response } from 'express';
 import { writeFile } from 'fs/promises';
@@ -52,6 +44,10 @@ import {
   MCP_SERVER_NAME,
   NearToken,
   noLeadingWhitespace,
+  parsePool,
+  type Pool,
+  type PoolRPCView,
+  getConfig as refGetConfig,
   type RefSwapByOutputAction,
   refSwapEstimateToActions,
   type Result,
@@ -236,11 +232,63 @@ const getContractABI = async (
   }
 };
 
-const refFinanceGetTokenInfo = async (
-  contractName: string,
-): Promise<Result<TokenMetadata, Error>> => {
+type TokenMetadata = {
+  id: string;
+  metadata: FungibleTokenMetadata;
+};
+
+type RefFinanceEstimate = {
+  estimate: string;
+  pool: Pool;
+  outputToken: string;
+  inputToken: string;
+};
+
+export const toReadableNumber = (decimals: number, number = '0'): string => {
+  if (!decimals) return number;
+
+  const wholeStr = number.substring(0, number.length - decimals) || '0';
+  const fractionStr = number
+    .substring(number.length - decimals)
+    .padStart(decimals, '0')
+    .substring(0, decimals);
+
+  return `${wholeStr}.${fractionStr}`.replace(/\.?0+$/, '');
+};
+
+const FEE_DIVISOR = 10000;
+export const refFinanceGetEstimate = async (
+  tokenIn: TokenMetadata,
+  tokenOut: TokenMetadata,
+  pool: Pool,
+  amountIn: string,
+): Promise<Result<RefFinanceEstimate, Error>> => {
   try {
-    return { ok: true, value: await ftGetTokenMetadata(contractName) };
+    const amount_with_fee = Number(amountIn) * (FEE_DIVISOR - pool.fee);
+    const in_balance = toReadableNumber(
+      tokenIn.metadata.decimals,
+      pool.supplies[tokenIn.id],
+    );
+    const out_balance = toReadableNumber(
+      tokenOut.metadata.decimals,
+      pool.supplies[tokenOut.id],
+    );
+    const estimate = new Big(
+      (
+        (amount_with_fee * Number(out_balance)) /
+        (FEE_DIVISOR * Number(in_balance) + amount_with_fee)
+      ).toString(),
+    ).toFixed();
+
+    return {
+      ok: true,
+      value: {
+        estimate,
+        pool,
+        outputToken: tokenOut.id,
+        inputToken: tokenIn.id,
+      },
+    };
   } catch (e) {
     return { ok: false, error: new Error(e as string) };
   }
@@ -250,8 +298,7 @@ export const refFinanceGetPoolsInfo = async (
   connection: Near,
 ): Promise<Result<Pool[], Error>> => {
   try {
-    const network = connection.connection.networkId;
-    const refConfig = refGetConfig(network);
+    const refConfig = refGetConfig(connection.connection.networkId);
     const refAccount = await connection.account(refConfig.REF_FI_CONTRACT_ID);
 
     // get the total number of pools
@@ -2286,13 +2333,19 @@ export const createMcpServer = async (keyDir: string) => {
       }
       const tokenOut = tokenOutContractAccountResult.value;
 
-      const tokenInMetadata = await refFinanceGetTokenInfo(tokenIn.accountId);
+      const tokenInMetadata = await getFungibleTokenContractMetadataResult(
+        tokenIn.accountId,
+        connection,
+      );
       if (!tokenInMetadata.ok) {
         return {
           content: [{ type: 'text', text: `Error: ${tokenInMetadata.error}` }],
         };
       }
-      const tokenOutMetadata = await refFinanceGetTokenInfo(tokenOut.accountId);
+      const tokenOutMetadata = await getFungibleTokenContractMetadataResult(
+        tokenOut.accountId,
+        connection,
+      );
       if (!tokenOutMetadata.ok) {
         return {
           content: [{ type: 'text', text: `Error: ${tokenOutMetadata.error}` }],
@@ -2327,17 +2380,29 @@ export const createMcpServer = async (keyDir: string) => {
         }
 
         // calculate the pool estimate
-        const poolEstimate = await getPoolEstimate({
-          tokenIn: tokenInMetadata.value,
-          tokenOut: tokenOutMetadata.value,
-          amountIn: args.amount.toString(),
-          pool: poolInfo,
-        });
+        const poolEstimate = await refFinanceGetEstimate(
+          {
+            id: tokenIn.accountId,
+            metadata: tokenInMetadata.value,
+          },
+          {
+            id: tokenOut.accountId,
+            metadata: tokenOutMetadata.value,
+          },
+          poolInfo,
+          args.amount.toString(),
+        );
+        if (!poolEstimate.ok) {
+          return {
+            content: [{ type: 'text', text: `Error: ${poolEstimate.error}` }],
+          };
+        }
+
         return {
           content: [
             {
               type: 'text',
-              text: `Pool info: ${stringify_bigint(poolEstimate)}`,
+              text: `Pool info: ${stringify_bigint(poolEstimate.value)}`,
             },
           ],
         };
@@ -2369,7 +2434,9 @@ export const createMcpServer = async (keyDir: string) => {
           content: [
             {
               type: 'text',
-              text: `Smart route estimate: ${stringify_bigint(smartRouteEstimate)}`,
+              text: `Smart route estimate: ${stringify_bigint(
+                smartRouteEstimate.value,
+              )}`,
             },
           ],
         };
@@ -2494,13 +2561,19 @@ export const createMcpServer = async (keyDir: string) => {
       }
       const tokenOut = tokenOutContractAccountResult.value;
 
-      const tokenInMetadata = await refFinanceGetTokenInfo(tokenIn.accountId);
+      const tokenInMetadata = await getFungibleTokenContractMetadataResult(
+        tokenIn.accountId,
+        connection,
+      );
       if (!tokenInMetadata.ok) {
         return {
           content: [{ type: 'text', text: `Error: ${tokenInMetadata.error}` }],
         };
       }
-      const tokenOutMetadata = await refFinanceGetTokenInfo(tokenOut.accountId);
+      const tokenOutMetadata = await getFungibleTokenContractMetadataResult(
+        tokenOut.accountId,
+        connection,
+      );
       if (!tokenOutMetadata.ok) {
         return {
           content: [{ type: 'text', text: `Error: ${tokenOutMetadata.error}` }],
@@ -2543,12 +2616,23 @@ export const createMcpServer = async (keyDir: string) => {
         }
 
         // calculate the pool estimate
-        const poolEstimate = await getPoolEstimate({
-          tokenIn: tokenInMetadata.value,
-          tokenOut: tokenOutMetadata.value,
-          amountIn: args.amount.toString(),
-          pool: poolInfo,
-        });
+        const poolEstimate = await refFinanceGetEstimate(
+          {
+            id: tokenIn.accountId,
+            metadata: tokenInMetadata.value,
+          },
+          {
+            id: tokenOut.accountId,
+            metadata: tokenOutMetadata.value,
+          },
+          poolInfo,
+          args.amount.toString(),
+        );
+        if (!poolEstimate.ok) {
+          return {
+            content: [{ type: 'text', text: `Error: ${poolEstimate.error}` }],
+          };
+        }
 
         // execute swap
         const swapResult = await executeRefSwap(
@@ -2562,7 +2646,7 @@ export const createMcpServer = async (keyDir: string) => {
               token_in: tokenIn.accountId,
               amount_out: '0',
               token_out: tokenOut.accountId,
-              min_amount_out: poolEstimate.estimate,
+              min_amount_out: poolEstimate.value.estimate,
             },
           ],
         );
