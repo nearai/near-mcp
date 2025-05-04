@@ -19,8 +19,17 @@ import {
   type FinalExecutionOutcome,
   type SerializedReturnValue,
 } from '@near-js/types';
+import {
+  ftGetTokenMetadata,
+  getPoolEstimate,
+  parsePool,
+  type Pool,
+  type PoolRPCView,
+  getConfig as refGetConfig,
+  type TokenMetadata,
+} from '@ref-finance/ref-sdk';
 import base58 from 'bs58';
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 import { writeFile } from 'fs/promises';
 import { type AbiRoot } from 'near-abi';
 import { type Account, connect, KeyPair, type Near } from 'near-api-js';
@@ -33,16 +42,20 @@ import { ZSTDDecoder } from 'zstddec';
 import {
   curvePrefixToKeyType,
   DEFAULT_GAS,
+  type FungibleTokenContract,
   getFungibleTokenContractInfo,
   getParsedContractMethod,
+  getSmartRouteRefSwapEstimate,
   json_to_zod,
   keyTypeToCurvePrefix,
   mapSemaphore,
   MCP_SERVER_NAME,
   NearToken,
   noLeadingWhitespace,
+  type RefSwapByOutputAction,
+  refSwapEstimateToActions,
   type Result,
-  searchFungibleTokenContracts,
+  searchFungibleTokens,
   stringify_bigint,
 } from './utils';
 
@@ -68,7 +81,7 @@ const getAccount = async (
     return {
       ok: false,
       error: new Error(
-        `Error getting account by account id ${accountId}: ${e as string}`,
+        `Cannot find account by account id ${accountId}: ${e as string}`,
       ),
     };
   }
@@ -223,6 +236,119 @@ const getContractABI = async (
   }
 };
 
+const refFinanceGetTokenInfo = async (
+  contractName: string,
+): Promise<Result<TokenMetadata, Error>> => {
+  try {
+    return { ok: true, value: await ftGetTokenMetadata(contractName) };
+  } catch (e) {
+    return { ok: false, error: new Error(e as string) };
+  }
+};
+
+export const refFinanceGetPoolsInfo = async (
+  connection: Near,
+): Promise<Result<Pool[], Error>> => {
+  try {
+    const network = connection.connection.networkId;
+    const refConfig = refGetConfig(network);
+    const refAccount = await connection.account(refConfig.REF_FI_CONTRACT_ID);
+
+    // get the total number of pools
+    const numberOfPools = (await refAccount.viewFunction({
+      contractId: refConfig.REF_FI_CONTRACT_ID,
+      methodName: 'get_number_of_pools',
+      args: {},
+    })) as unknown as number;
+
+    // Concurrently get all pools
+    const perPage = 1024;
+    const allResults = (
+      await mapSemaphore(
+        Array.from(
+          { length: Math.ceil(numberOfPools / perPage) },
+          (_, i) => i * perPage,
+        ),
+        4,
+        async (index) => {
+          const contractResult = (await refAccount.viewFunction({
+            contractId: refConfig.REF_FI_CONTRACT_ID,
+            methodName: 'get_pools',
+            args: { from_index: index, limit: perPage },
+          })) as unknown as PoolRPCView[];
+          return contractResult.map((rawPool, i) =>
+            parsePool(rawPool, i + index),
+          );
+        },
+      )
+    ).flat();
+
+    return {
+      ok: true,
+      value: allResults,
+    };
+  } catch (e) {
+    return { ok: false, error: new Error(e as string) };
+  }
+};
+
+const refFinanceGetPoolFromId = async (
+  connection: Near,
+  poolId: number,
+): Promise<Result<Pool, Error>> => {
+  try {
+    const network = connection.connection.networkId;
+    const refConfig = refGetConfig(network);
+    const refAccount = await connection.account(refConfig.REF_FI_CONTRACT_ID);
+
+    const contractResult = (await refAccount.viewFunction({
+      contractId: refConfig.REF_FI_CONTRACT_ID,
+      methodName: 'get_pool',
+      args: { pool_id: poolId },
+    })) as unknown as PoolRPCView;
+
+    return {
+      ok: true,
+      value: parsePool(contractResult),
+    };
+  } catch (e) {
+    return { ok: false, error: new Error(e as string) };
+  }
+};
+
+export const executeRefSwap = async (
+  connection: Near,
+  accountId: string,
+  tokenIn: Account,
+  tokenAmountIn: string,
+  actions: RefSwapByOutputAction[],
+): Promise<Result<object, Error>> => {
+  try {
+    if (actions.length === 0) throw new Error('No actions to execute');
+    const network = connection.connection.networkId;
+    const refConfig = refGetConfig(network);
+    const signer = await connection.account(accountId);
+
+    const swapResult = await signer.functionCall({
+      contractId: tokenIn.accountId,
+      methodName: 'ft_transfer_call',
+      args: {
+        receiver_id: refConfig.REF_FI_CONTRACT_ID,
+        amount: tokenAmountIn,
+        msg: JSON.stringify({
+          actions,
+        }),
+      },
+      gas: DEFAULT_GAS,
+      attachedDeposit: NearToken.parse_yocto_near('1').as_yocto_near(),
+    });
+
+    return { ok: true, value: swapResult };
+  } catch (error) {
+    return { ok: false, error: error as Error };
+  }
+};
+
 export const createMcpServer = async (keyDir: string) => {
   const keystore = new UnencryptedFileSystemKeyStore(keyDir);
   const mcp = new McpServer(
@@ -263,8 +389,8 @@ export const createMcpServer = async (keyDir: string) => {
 
       ## Guidelines
 
-      - When a user refers to the USDC token, they are referring to the USDC native token.
-      - When a user refers to the USDT token, they are referring to the USDT native token.
+      - When a user refers to the USDC token, they commonly refer to the USDC native token.
+      - When a user refers to the USDT token, they commonly refer to the USDT native token.
 
       ## Extra information
 
@@ -275,7 +401,7 @@ export const createMcpServer = async (keyDir: string) => {
 
   mcp.tool(
     'system_list_local_keypairs',
-    'List all accounts and their keypairs in the local keystore by network.',
+    'List all NEAR accounts and their keypairs in the local keystore by network.',
     {
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
     },
@@ -302,7 +428,7 @@ export const createMcpServer = async (keyDir: string) => {
     'system_import_account',
     noLeadingWhitespace`
     Import an account into the local keystore.
-    This will allow the user to use this account in other tools.
+    This will allow the user to use this account with other tools.
     Remember mainnet accounts are created with a .near suffix,
     and testnet accounts are created with a .testnet suffix.`,
     {
@@ -534,7 +660,9 @@ export const createMcpServer = async (keyDir: string) => {
 
   mcp.tool(
     'account_view_account_summary',
-    'Get summary information about any NEAR account. This calls the public RPC endpoint to get this information.',
+    noLeadingWhitespace`
+    Get summary information about any NEAR account. This calls a
+    public RPC endpoint to get this information.`,
     {
       accountId: z.string(),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
@@ -580,28 +708,44 @@ export const createMcpServer = async (keyDir: string) => {
   );
 
   mcp.tool(
-    'system_search_fungible_token_contracts_info',
+    'search_near_fungible_tokens',
     noLeadingWhitespace`
-    Search for fungible token contract information on the NEAR blockchain, with a grep-like search.
-    Use this tool to search for fungible token contract information. This tool works by 'grepping'
-    through a list of contract information JSON objects. Be careful with this tool, it can return a lot of results.
-    If used too much, it could overwhelm the API and cause issues.`,
+    Search for fungible token contract information for the NEAR blockchain, based on search terms.
+    This tool works by 'grepping' through a list of contract information JSON objects. Be careful
+    with this tool, it can return a lot of results. Ensure that your query is specific.`,
     {
-      searchTerm: z
+      accountIDSearchTerm: z
         .string()
+        .optional()
         .describe(
-          'The search term to use for finding fungible token contract information.',
+          'The grep-like search term to use for finding fungible token contract information by account ID.',
+        ),
+      symbolSearchTerm: z
+        .string()
+        .optional()
+        .describe(
+          'The grep-like search term to use for finding fungible token contract information by symbol.',
+        ),
+      nameSearchTerm: z
+        .string()
+        .optional()
+        .describe(
+          'The grep-like search term to use for finding fungible token contract information by name.',
         ),
       maxNumberOfResults: z
         .number()
-        .default(3)
+        .min(1)
+        .max(8)
+        .default(4)
         .describe(
           'The maximum number of results to return. This is a limit to the number of results returned by the API. Keep this number low to avoid overwhelming the API.',
         ),
     },
     async (args, __) => {
-      const tokenContractsSearchResult = await searchFungibleTokenContracts(
-        args.searchTerm,
+      const tokenContractsSearchResult = await searchFungibleTokens(
+        args.accountIDSearchTerm,
+        args.symbolSearchTerm,
+        args.nameSearchTerm,
         args.maxNumberOfResults,
       );
       if (!tokenContractsSearchResult.ok) {
@@ -618,36 +762,28 @@ export const createMcpServer = async (keyDir: string) => {
 
       // get the contract info for each contract
       const contractInfoResults = await mapSemaphore(
-        tokenContracts.map((token) => token.contract),
+        tokenContracts,
         4,
-        async (contract): Promise<[string, Result<object, Error>]> => {
-          return [contract, await getFungibleTokenContractInfo(contract)];
+        async (
+          contract,
+        ): Promise<[string, FungibleTokenContract, Result<object, Error>]> => {
+          return [
+            contract.contract,
+            contract,
+            await getFungibleTokenContractInfo(contract.contract),
+          ];
         },
       );
-      const filteredErrorResults = contractInfoResults.filter(
-        ([_, result]) => !result.ok,
-      );
-      if (filteredErrorResults.length > 0) {
-        const errorTokens = filteredErrorResults
-          .map(([contract, _]) => contract)
-          .join(', ');
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Error: ${errorTokens}`,
-            },
-          ],
-        };
-      }
-      const contractInfos = contractInfoResults
-        .filter(([_, result]) => result.ok)
-        .map(([_, result]) => {
-          if (result.ok) {
-            return result.value;
+
+      const contractInfos = contractInfoResults.map(
+        ([_, contract, contractInfoResult]) => {
+          if (contractInfoResult.ok) {
+            return contractInfoResult.value;
+          } else {
+            return contract;
           }
-          throw new Error('Unexpected error in filtered results');
-        });
+        },
+      );
 
       return {
         content: [
@@ -662,7 +798,8 @@ export const createMcpServer = async (keyDir: string) => {
 
   mcp.tool(
     'account_export_account',
-    'Export an account from the local keystore to a file.',
+    noLeadingWhitespace`
+    Export a NEAR account from the local keystore to a file.`,
     {
       accountId: z.string(),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
@@ -814,7 +951,7 @@ export const createMcpServer = async (keyDir: string) => {
   mcp.tool(
     'account_verify_signature',
     noLeadingWhitespace`
-    Cryptographically verify a signed piece of data against some NEAR account's public key.`,
+    Cryptographically verify a signed piece of data against a NEAR account's public key.`,
     {
       accountId: z
         .string()
@@ -1240,8 +1377,8 @@ export const createMcpServer = async (keyDir: string) => {
   mcp.tool(
     'account_add_access_key',
     noLeadingWhitespace`
-    Add an access key to an account. This will allow the account to
-    interact with the contract.`,
+    Add an access key to an account. This can be used to grant full access to an account,
+    or allow the specified account to have specific function call access to a contract.`,
     {
       accountId: z.string(),
       networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
@@ -1952,6 +2089,535 @@ export const createMcpServer = async (keyDir: string) => {
     },
   );
 
+  mcp.tool(
+    'ref_finance_get_pools',
+    noLeadingWhitespace`
+    Search for liquidity pools on the Ref Finance exchange contract based on two tokens.
+    Prioritize pools with higher liquidity and better rates for the user.`,
+    {
+      tokenA: z.object({
+        contractId: z.string().describe('The first token contract id'),
+        symbol: z.string().describe('The first token symbol'),
+      }),
+      tokenB: z.object({
+        contractId: z.string().describe('The second token contract id'),
+        symbol: z.string().describe('The second token symbol'),
+      }),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+    },
+    async (args, _) => {
+      const connection = await connect({
+        networkId: args.networkId,
+        keyStore: keystore,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+
+      const tokenAContractAccountResult = await getAccount(
+        args.tokenA.contractId,
+        connection,
+      );
+      if (!tokenAContractAccountResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${tokenAContractAccountResult.error}`,
+            },
+          ],
+        };
+      }
+      const tokenA = tokenAContractAccountResult.value;
+
+      const tokenBContractAccountResult = await getAccount(
+        args.tokenB.contractId,
+        connection,
+      );
+      if (!tokenBContractAccountResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${tokenBContractAccountResult.error}`,
+            },
+          ],
+        };
+      }
+      const tokenB = tokenBContractAccountResult.value;
+
+      const poolsInfoResult = await refFinanceGetPoolsInfo(connection);
+      if (!poolsInfoResult.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${poolsInfoResult.error}` }],
+        };
+      }
+
+      const filteredPools = poolsInfoResult.value.filter(
+        (pool) =>
+          pool.tokenIds.includes(tokenA.accountId) &&
+          pool.tokenIds.includes(tokenB.accountId),
+      );
+      if (filteredPools.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `No pool found for ${args.tokenA.contractId} and ${args.tokenB.contractId}`,
+            },
+          ],
+        };
+      }
+
+      return {
+        content: [{ type: 'text', text: stringify_bigint(filteredPools) }],
+      };
+    },
+  );
+
+  mcp.tool(
+    'ref_finance_get_swap_estimate',
+    noLeadingWhitespace`
+    Get a swap estimate from the Ref Finance exchange contract based on two tokens and a pool id.`,
+    {
+      tokenIn: z.object({
+        contractId: z
+          .string()
+          .describe('The contract id of the input token to be swapped'),
+        symbol: z.string().describe('The symbol of the input token'),
+      }),
+      tokenOut: z.object({
+        contractId: z
+          .string()
+          .describe('The contract id of the output token to be swapped'),
+        symbol: z.string().describe('The symbol of the output token'),
+      }),
+      amount: z
+        .union([
+          z
+            .number()
+            .describe(
+              'The amount of input tokens with decimal formatting (e.g., 1.5 wNEAR)',
+            ),
+          z
+            .bigint()
+            .describe(
+              'The amount in smallest denomination (e.g., yoctowNEAR for wNEAR, or equivalent for other tokens based on their decimals)',
+            ),
+        ])
+        .describe('The amount of the input tokens to swap'),
+      estimateType: z
+        .union([
+          z.object({
+            type: z
+              .literal('bySmartRoute')
+              .describe(
+                'Get an estimate using the ref finance smart router to find the best pool',
+              ),
+            pathDepth: z
+              .number()
+              .default(3)
+              .describe('The depth of the path to search for the best pool'),
+            slippagePercent: z
+              .number()
+              .default(0.001)
+              .describe(
+                'The slippage to use for the estimate. Only use 0.001, 0.005, or 0.01',
+              ),
+          }),
+          z.object({
+            type: z
+              .literal('byPoolId')
+              .describe('Get an estimate using a specific pool id'),
+            poolId: z.number().describe('The pool id (e.g. 1)'),
+          }),
+        ])
+        .default({ type: 'bySmartRoute' })
+        .describe(
+          'The type of estimate to get. Defaults to the ref finance smart router to find the best price over all available pools',
+        ),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+    },
+    async (args, _) => {
+      if (args.tokenIn === args.tokenOut) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Token in and token out cannot be the same`,
+            },
+          ],
+        };
+      }
+
+      const connection = await connect({
+        networkId: args.networkId,
+        keyStore: keystore,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+
+      const tokenInContractAccountResult = await getAccount(
+        args.tokenIn.contractId,
+        connection,
+      );
+      if (!tokenInContractAccountResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${tokenInContractAccountResult.error}`,
+            },
+          ],
+        };
+      }
+      const tokenIn = tokenInContractAccountResult.value;
+
+      const tokenOutContractAccountResult = await getAccount(
+        args.tokenOut.contractId,
+        connection,
+      );
+      if (!tokenOutContractAccountResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${tokenOutContractAccountResult.error}`,
+            },
+          ],
+        };
+      }
+      const tokenOut = tokenOutContractAccountResult.value;
+
+      const tokenInMetadata = await refFinanceGetTokenInfo(tokenIn.accountId);
+      if (!tokenInMetadata.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${tokenInMetadata.error}` }],
+        };
+      }
+      const tokenOutMetadata = await refFinanceGetTokenInfo(tokenOut.accountId);
+      if (!tokenOutMetadata.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${tokenOutMetadata.error}` }],
+        };
+      }
+
+      const estimateType = args.estimateType;
+      if (estimateType.type === 'byPoolId') {
+        const poolResult = await refFinanceGetPoolFromId(
+          connection,
+          estimateType.poolId,
+        );
+        if (!poolResult.ok) {
+          return {
+            content: [{ type: 'text', text: `Error: ${poolResult.error}` }],
+          };
+        }
+        const poolInfo = poolResult.value;
+
+        if (
+          !poolInfo.tokenIds.includes(tokenIn.accountId) ||
+          !poolInfo.tokenIds.includes(tokenOut.accountId)
+        ) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Error: Pool tokens [${poolInfo.tokenIds.join(', ')}] do not include ${args.tokenIn.contractId} or ${args.tokenOut.contractId}`,
+              },
+            ],
+          };
+        }
+
+        // calculate the pool estimate
+        const poolEstimate = await getPoolEstimate({
+          tokenIn: tokenInMetadata.value,
+          tokenOut: tokenOutMetadata.value,
+          amountIn: args.amount.toString(),
+          pool: poolInfo,
+        });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Pool info: ${stringify_bigint(poolEstimate)}`,
+            },
+          ],
+        };
+      } else {
+        // convert the amount into the decimals of the fungible token
+        const amountInDecimals =
+          typeof args.amount === 'number'
+            ? BigInt(
+                Math.floor(args.amount * 10 ** tokenInMetadata.value.decimals),
+              )
+            : args.amount;
+
+        const smartRouteEstimate = await getSmartRouteRefSwapEstimate(
+          amountInDecimals.toString(),
+          tokenIn.accountId,
+          tokenOut.accountId,
+          estimateType.pathDepth,
+          estimateType.slippagePercent,
+        );
+        if (!smartRouteEstimate.ok) {
+          return {
+            content: [
+              { type: 'text', text: `Error: ${smartRouteEstimate.error}` },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Smart route estimate: ${stringify_bigint(smartRouteEstimate)}`,
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  mcp.tool(
+    'ref_finance_execute_swap',
+    noLeadingWhitespace`
+    Execute a swap on Ref Finance based on two tokens and a pool id.
+    Prioritize pools with higher liquidity and better rates for the user.`,
+    {
+      accountId: z
+        .string()
+        .describe('The account id of the user doing the swap'),
+      tokenIn: z.object({
+        contractId: z
+          .string()
+          .describe('The contract id of the input token to be swapped'),
+        symbol: z.string().describe('The symbol of the input token'),
+      }),
+      tokenOut: z.object({
+        contractId: z
+          .string()
+          .describe('The contract id of the output token to be swapped'),
+        symbol: z.string().describe('The symbol of the output token'),
+      }),
+      amount: z
+        .union([
+          z
+            .number()
+            .describe(
+              'The amount of input tokens with decimal formatting (e.g., 1.5 wNEAR)',
+            ),
+          z
+            .bigint()
+            .describe(
+              'The amount in smallest denomination (e.g., yoctowNEAR for wNEAR, or equivalent for other tokens based on their decimals)',
+            ),
+        ])
+        .describe('The amount of the input tokens to swap'),
+      swapType: z
+        .union([
+          z.object({
+            type: z
+              .literal('bySmartRoute')
+              .describe(
+                'Get an estimate using the ref finance smart router to find the best pool',
+              ),
+            pathDepth: z
+              .number()
+              .default(3)
+              .describe('The depth of the path to search for the best pool'),
+            slippagePercent: z
+              .number()
+              .default(0.001)
+              .describe(
+                'The slippage to use for the estimate. Only use 0.001, 0.005, or 0.01',
+              ),
+          }),
+          z.object({
+            type: z
+              .literal('byPoolId')
+              .describe('Get an estimate using a specific pool id'),
+            poolId: z.number().describe('The pool id (e.g. 1)'),
+          }),
+        ])
+        .default({ type: 'bySmartRoute' })
+        .describe(
+          'The type of estimate to get. Defaults to the ref finance smart router to find the best price over all available pools',
+        ),
+      networkId: z.enum(['testnet', 'mainnet']).default('mainnet'),
+    },
+    async (args, _) => {
+      if (args.tokenIn === args.tokenOut) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Token in and token out cannot be the same`,
+            },
+          ],
+        };
+      }
+
+      const connection = await connect({
+        networkId: args.networkId,
+        keyStore: keystore,
+        nodeUrl: getEndpointsByNetwork(args.networkId)[0]!,
+      });
+
+      const tokenInContractAccountResult = await getAccount(
+        args.tokenIn.contractId,
+        connection,
+      );
+      if (!tokenInContractAccountResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${tokenInContractAccountResult.error}`,
+            },
+          ],
+        };
+      }
+      const tokenIn = tokenInContractAccountResult.value;
+
+      const tokenOutContractAccountResult = await getAccount(
+        args.tokenOut.contractId,
+        connection,
+      );
+      if (!tokenOutContractAccountResult.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${tokenOutContractAccountResult.error}`,
+            },
+          ],
+        };
+      }
+      const tokenOut = tokenOutContractAccountResult.value;
+
+      const tokenInMetadata = await refFinanceGetTokenInfo(tokenIn.accountId);
+      if (!tokenInMetadata.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${tokenInMetadata.error}` }],
+        };
+      }
+      const tokenOutMetadata = await refFinanceGetTokenInfo(tokenOut.accountId);
+      if (!tokenOutMetadata.ok) {
+        return {
+          content: [{ type: 'text', text: `Error: ${tokenOutMetadata.error}` }],
+        };
+      }
+
+      // convert the amount into the decimals of the fungible token
+      const amountInDecimals =
+        typeof args.amount === 'number'
+          ? BigInt(
+              Math.floor(args.amount * 10 ** tokenInMetadata.value.decimals),
+            )
+          : args.amount;
+
+      const swapType = args.swapType;
+      if (swapType.type === 'byPoolId') {
+        const poolResult = await refFinanceGetPoolFromId(
+          connection,
+          swapType.poolId,
+        );
+        if (!poolResult.ok) {
+          return {
+            content: [{ type: 'text', text: `Error: ${poolResult.error}` }],
+          };
+        }
+        const poolInfo = poolResult.value;
+
+        if (
+          !poolInfo.tokenIds.includes(tokenIn.accountId) ||
+          !poolInfo.tokenIds.includes(tokenOut.accountId)
+        ) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Error: Pool tokens [${poolInfo.tokenIds.join(', ')}] do not include ${args.tokenIn.contractId} or ${args.tokenOut.contractId}`,
+              },
+            ],
+          };
+        }
+
+        // calculate the pool estimate
+        const poolEstimate = await getPoolEstimate({
+          tokenIn: tokenInMetadata.value,
+          tokenOut: tokenOutMetadata.value,
+          amountIn: args.amount.toString(),
+          pool: poolInfo,
+        });
+
+        // execute swap
+        const swapResult = await executeRefSwap(
+          connection,
+          args.accountId,
+          tokenIn,
+          amountInDecimals.toString(),
+          [
+            {
+              pool_id: poolInfo.id,
+              token_in: tokenIn.accountId,
+              amount_out: '0',
+              token_out: tokenOut.accountId,
+              min_amount_out: poolEstimate.estimate,
+            },
+          ],
+        );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Swap result: ${stringify_bigint(swapResult)}`,
+            },
+          ],
+        };
+      } else {
+        const smartRouteEstimate = await getSmartRouteRefSwapEstimate(
+          amountInDecimals.toString(),
+          tokenIn.accountId,
+          tokenOut.accountId,
+          swapType.pathDepth,
+          swapType.slippagePercent,
+        );
+
+        if (!smartRouteEstimate.ok) {
+          return {
+            content: [
+              { type: 'text', text: `Error: ${smartRouteEstimate.error}` },
+            ],
+          };
+        }
+
+        // execute swap
+        const swapResult = await executeRefSwap(
+          connection,
+          args.accountId,
+          tokenIn,
+          amountInDecimals.toString(),
+          refSwapEstimateToActions(smartRouteEstimate.value),
+        );
+        if (!swapResult.ok) {
+          return {
+            content: [{ type: 'text', text: `Error: ${swapResult.error}` }],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Swap result: ${stringify_bigint(swapResult.value)}`,
+            },
+          ],
+        };
+      }
+    },
+  );
+
   return mcp;
 };
 
@@ -1975,7 +2641,7 @@ export async function runMcpServer(
     const transports = new Map<string, SSEServerTransport>();
 
     // SSE endpoint for clients
-    app.get('/sse', async (req, res) => {
+    app.get('/sse', async (req: Request, res: Response) => {
       try {
         // Create a new transport to handle the client connection
         const transport = new SSEServerTransport('/messages', res);
@@ -2013,7 +2679,7 @@ export async function runMcpServer(
     });
 
     // Handle POST messages for SSE clients
-    app.post('/messages', async (req, res) => {
+    app.post('/messages', async (req: Request, res: Response) => {
       try {
         const sessionId = req.query.sessionId as string;
         if (!sessionId) {
