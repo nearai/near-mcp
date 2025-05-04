@@ -145,58 +145,6 @@ export type FungibleTokenContract = {
   decimals: number;
 };
 
-/*
-{
-  "receiver_id": "v2.ref-finance.near",
-  "amount": "10000",
-  "msg": "{\"force\":0,\"actions\":[
-  {\"pool_id\":4512,
-   \"token_in\":\"17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\",
-   \"token_out\":\"wrap.near\",
-   \"amount_in\":\"10000\",
-   \"amount_out\":\"0\",
-   \"min_amount_out\":\"0\"
-  },
-  {\"pool_id\":3449,
-   \"token_in\":\"wrap.near\",
-   \"token_out\":\"token.pembrock.near\",
-   \"amount_out\":\"0\",
-   \"min_amount_out\":\"0\"
-  },
-  {\"pool_id\":3470,
-   \"token_in\":\"token.pembrock.near\",
-   \"token_out\":\"dac17f958d2ee523a2206206994597c13d831ec7.factory.bridge.near\",
-   \"amount_out\":\"0\",
-   \"min_amount_out\":\"9950\"
-  }
-  ]}"
-}
-
-{
-  "receiver_id": "v2.ref-finance.near",
-  "amount": "10000",
-  "msg": "{\"actions\":[
-  {\"pool_id\":4512,
-   \"token_in\":\"17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\",
-   \"token_out\":\"wrap.near\",
-   \"amount_in\":\"10000\",
-   \"min_amount_out\":\"0\"
-  },
-  {\"pool_id\":3449,
-   \"token_in\":\"wrap.near\",
-   \"token_out\":\"token.pembrock.near\",
-   \"amount_in\":\"0\",
-   \"min_amount_out\":\"0\"
-  },
-  {\"pool_id\":3470,
-   \"token_in\":\"token.pembrock.near\",
-   \"token_out\":\"dac17f958d2ee523a2206206994597c13d831ec7.factory.bridge.near\",
-   \"amount_in\":\"0\",
-   \"min_amount_out\":\"9990\"
-  }]}"
-}
-*/
-
 export const searchFungibleTokens = async (
   accountIDSearchTerm: string | undefined,
   symbolSearchTerm: string | undefined,

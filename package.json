@@ -13,7 +13,8 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
-    "build": "rm -rf dist/* && bun build --sourcemap=external --entrypoints $(find ./src -name '*.ts' | grep -v '*.test.ts') --minify --splitting --target node --outdir dist/ && bun run build:declaration",
+    "clean": "rm -r dist/*",
+    "build": "bun run clean && bun build --sourcemap=external --entrypoints $(find ./src -name '*.ts' | grep -v '*.test.ts') --minify --splitting --target node --outdir dist/ && bun run build:declaration",
     "build:declaration": "tsc --emitDeclarationOnly",
     "cli": "bun run build && dist/near-mcp.js"
   },
@@ -78,15 +79,16 @@
     "@oclif/core": "^4",
     "@oclif/plugin-help": "^6",
     "@oclif/plugin-plugins": "^5",
+    "@ref-finance/ref-sdk": "^1.4.6",
     "borsh": "^2.0.0",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
+    "express": "^4.18.2",
     "near-abi": "^0.2.0",
     "near-api-js": "^5.0.1",
     "tsx": "^4.19.3",
     "zod": "^3.24.1",
     "zod-to-json-schema": "^3.24.4",
-    "zstddec": "^0.1.0",
-    "express": "^4.18.2"
+    "zstddec": "^0.1.0"
   }
 }
